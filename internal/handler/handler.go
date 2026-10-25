@@ -13,6 +13,10 @@ type Handler struct {
 func New() *Handler {
 	router := gin.Default()
 	router.GET("/projects", GetProjects)
+	router.GET("/users/:id", GetUser)
+	router.POST("/users", CreateUser)
+	router.PUT("/users/:id", UpdateUser)
+	router.GET("/profile", GetProfile)
 
 	return &Handler{router: router}
 }
