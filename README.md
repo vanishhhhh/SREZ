@@ -1,6 +1,6 @@
 # SREZ — HTTP-сервер занятия №3
 
-Учебный сервер на Go и Gin. `GET /projects` возвращает фиксированный список проектов из обработчика.
+Учебный сервер на Go и Gin. `GET /projects` возвращает фиксированный список проектов из обработчика. Добавлены четыре моковые ручки пользователей для начального каркаса SREZ.
 
 ## Структура
 
@@ -9,6 +9,8 @@ cmd/app/main.go                    точка входа: конфигураци
 internal/config/config.go          HTTP_ADDR и адрес по умолчанию
 internal/handler/handler.go        Gin, маршруты, обработчик и запуск HTTP
 internal/handler/handler_test.go   проверка HTTP-ответа
+internal/handler/user.go           моковые ручки пользователей
+internal/handler/user_test.go      проверки ручек пользователей
 internal/usecase/project.go        объявление пакета без логики
 internal/storage/project.go        объявление пакета без логики
 Dockerfile                        сборка контейнерного образа
@@ -38,6 +40,32 @@ curl.exe -i http://localhost:8080/projects
 Порядок полей `id` и `title` внутри объекта не влияет на смысл JSON.
 
 Для остановки сервера нажми `Ctrl+C` в его терминале.
+
+## Ручки пользователей
+
+Это заглушки без базы данных, регистрации, входа и проверки прав. Все данные вымышленные. `POST` и `PUT` принимают JSON и возвращают пример ответа, но ничего не сохраняют. Каждый `POST` возвращает условный `id: 2`; последующий `GET /users/2` вернёт `404`. `GET /profile` всегда показывает того же тестового пользователя, а не определяет текущего по сессии.
+
+| Метод | Путь | Ответ |
+| --- | --- | --- |
+| GET | `/users/1` | `200`, тестовый пользователь с полями `id`, `name`, `email` |
+| POST | `/users` | `201`, переданные `name`, `email` и условный `id: 2` |
+| PUT | `/users/1` | `200`, переданные `name`, `email` и `id: 1` |
+| GET | `/profile` | `200`, тестовый профиль с `id: 1` |
+
+Для `GET /users/:id` и `PUT /users/:id` доступен только тестовый пользователь `1`. Другой положительный идентификатор даёт `404`, некорректный — `400`. Для `POST` и `PUT` нужны непустое поле `name` и корректный `email`; некорректный JSON или поля дают `400`. Ошибки имеют вид `{"error":"описание"}`. Поля пароля и токены пока не используются.
+
+Проверка в PowerShell при запущенном сервере:
+
+```powershell
+curl.exe -i http://localhost:8080/users/1
+curl.exe -i http://localhost:8080/profile
+
+$body = @{ name = "Roman"; email = "roman@example.com" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/users -ContentType "application/json" -Body $body
+Invoke-RestMethod -Method Put -Uri http://localhost:8080/users/1 -ContentType "application/json" -Body $body
+```
+
+`SPEC.md` описывает исходный учебный пример каталога проектов. Пользовательские ручки — следующий моковый этап; реальные сценарии маркетплейса будут добавляться отдельно.
 
 ## Другой порт
 
