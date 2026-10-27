@@ -18,11 +18,10 @@ type userRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
-// Пока вместо базы используем одного вымышленного пользователя.
 func mockUser() User {
 	return User{ID: 1, Name: "Тестовый пользователь", Email: "demo@example.com"}
 }
-
+git --no-pager diff -- internal/handler/user.go
 func GetUser(c *gin.Context) {
 	id, ok := userID(c)
 	if !ok {
