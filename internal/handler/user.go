@@ -21,7 +21,7 @@ type userRequest struct {
 func mockUser() User {
 	return User{ID: 1, Name: "Тестовый пользователь", Email: "demo@example.com"}
 }
-git --no-pager diff -- internal/handler/user.go
+
 func GetUser(c *gin.Context) {
 	id, ok := userID(c)
 	if !ok {
