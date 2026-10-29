@@ -1,98 +1,169 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func TestUserEndpoints(t *testing.T) {
-	tests := []struct {
-		name   string
-		method string
-		path   string
-		body   string
-		status int
-		want   User
-	}{
-		{"get user", http.MethodGet, "/users/1", "", 200, mockUser()},
-		{"get profile", http.MethodGet, "/profile", "", 200, mockUser()},
-		{"create user", http.MethodPost, "/users", `{"name":"Роман","email":"roman@example.com"}`, 201, User{2, "Роман", "roman@example.com"}},
-		{"update user", http.MethodPut, "/users/1", `{"name":"Рома","email":"roma@example.com"}`, 200, User{1, "Рома", "roma@example.com"}},
-		{"missing user", http.MethodGet, "/users/999", "", 404, User{}},
-		{"update missing user", http.MethodPut, "/users/999", `{"name":"Рома","email":"roma@example.com"}`, 404, User{}},
-		{"invalid id", http.MethodGet, "/users/abc", "", 400, User{}},
-		{"zero id", http.MethodGet, "/users/0", "", 400, User{}},
-		{"negative id", http.MethodPut, "/users/-1", `{}`, 400, User{}},
-		{"broken json", http.MethodPost, "/users", `{`, 400, User{}},
-		{"empty body", http.MethodPost, "/users", "", 400, User{}},
-		{"missing name", http.MethodPost, "/users", `{"email":"roman@example.com"}`, 400, User{}},
-		{"missing email", http.MethodPut, "/users/1", `{"name":"Рома"}`, 400, User{}},
-		{"invalid email", http.MethodPost, "/users", `{"name":"Рома","email":"invalid"}`, 400, User{}},
-	}
+const publicMockUserJSON = `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
+const profileMockUserJSON = `{"id":1,"email":"demo@example.com","username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
+const createMockUserJSON = `{"email":"roman@example.com","username":"roman_1","display_name":" Роман "}`
 
+func TestUserEndpoints(t *testing.T) {
 	h := New()
-	for _, tt := range tests {
+	for _, tt := range []struct {
+		name, method, path, body string
+		status                   int
+		want                     string
+	}{
+		{"public user", "GET", "/users/1", "", 200, publicMockUserJSON},
+		{"own profile", "GET", "/profile", "", 200, profileMockUserJSON},
+		{"create", "POST", "/users", createMockUserJSON, 201, `{"id":2,"username":"roman_1","display_name":"Роман","avatar_url":""}`},
+		{"change both", "PUT", "/users/1", `{"display_name":" Новое имя ","avatar_url":"https://example.com/new.png"}`, 200, `{"id":1,"username":"demo_user","display_name":"Новое имя","avatar_url":"https://example.com/new.png"}`},
+		{"name only", "PUT", "/users/1", `{"display_name":"Рома"}`, 200, `{"id":1,"username":"demo_user","display_name":"Рома","avatar_url":"https://example.com/users/1/avatar.png"}`},
+		{"clear avatar", "PUT", "/users/1", `{"avatar_url":""}`, 200, `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":""}`},
+	} {
 		t.Run(tt.name, func(t *testing.T) {
-			response := httptest.NewRecorder()
-			request := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
-			request.Header.Set("Content-Type", "application/json")
-			h.router.ServeHTTP(response, request)
+			response := catalogRequest(t, h, tt.method, tt.path, tt.body)
 			if response.Code != tt.status {
-				t.Fatalf("status = %d, want %d; body = %s", response.Code, tt.status, response.Body.String())
+				t.Fatalf("status = %d: %s", response.Code, response.Body.String())
 			}
-			if !strings.HasPrefix(response.Header().Get("Content-Type"), "application/json") {
-				t.Fatal("response must be JSON")
-			}
-			if tt.status >= 400 {
-				var body struct {
-					Error string `json:"error"`
-				}
-				if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || body.Error == "" {
-					t.Fatalf("expected JSON error, got %s", response.Body.String())
-				}
-				return
-			}
-			var user User
-			if err := json.Unmarshal(response.Body.Bytes(), &user); err != nil {
-				t.Fatal(err)
-			}
-			if user != tt.want {
-				t.Fatalf("user = %#v, want %#v", user, tt.want)
-			}
+			assertCatalogJSON(t, response.Body.Bytes(), tt.want)
+		})
+	}
+}
+
+func TestUserIDs(t *testing.T) {
+	h := New()
+	for _, method := range []string{http.MethodGet, http.MethodPut} {
+		for _, tt := range []struct {
+			id     string
+			status int
+		}{
+			{"abc", 400}, {"0", 400}, {"-1", 400}, {"1.5", 400}, {"9223372036854775808", 400}, {"9223372036854775807", 404}, {"2", 404}, {"999", 404},
+		} {
+			t.Run(method+tt.id, func(t *testing.T) {
+				assertCatalogError(t, catalogRequest(t, h, method, "/users/"+tt.id, `{"display_name":"Рома"}`), tt.status)
+			})
+		}
+	}
+}
+
+func TestCreateUserErrors(t *testing.T) {
+	h := New()
+	for _, tt := range []struct{ name, body string }{
+		{"empty", ""}, {"broken", "{"}, {"null", "null"}, {"array", "[]"}, {"scalar", "true"}, {"missing", "{}"},
+		{"two objects", createMockUserJSON + " {}"}, {"trailing", createMockUserJSON + " garbage"},
+		{"bad email", `{"email":"bad","username":"roman","display_name":"Имя"}`},
+		{"missing email", `{"username":"roman","display_name":"Имя"}`},
+		{"email name", `{"email":"Name <r@example.com>","username":"roman","display_name":"Имя"}`},
+		{"short username", `{"email":"r@example.com","username":"ab","display_name":"Имя"}`},
+		{"long username", `{"email":"r@example.com","username":"` + strings.Repeat("a", 31) + `","display_name":"Имя"}`},
+		{"unicode username", `{"email":"r@example.com","username":"роман","display_name":"Имя"}`},
+		{"missing username", `{"email":"r@example.com","display_name":"Имя"}`},
+		{"blank display", `{"email":"r@example.com","username":"roman","display_name":" \t"}`},
+		{"missing display", `{"email":"r@example.com","username":"roman"}`},
+		{"wrong type", `{"email":"r@example.com","username":1,"display_name":"Имя"}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) { assertCatalogError(t, catalogRequest(t, h, "POST", "/users", tt.body), 400) })
+	}
+	for _, field := range []string{"name", "password", "password_hash", "id", "avatar_url", "extra"} {
+		t.Run("unknown/"+field, func(t *testing.T) {
+			body := strings.TrimSuffix(createMockUserJSON, "}") + `,"` + field + `":"secret"}`
+			assertCatalogError(t, catalogRequest(t, h, "POST", "/users", body), 400)
+		})
+	}
+}
+
+func TestUpdateUserErrors(t *testing.T) {
+	h := New()
+	for _, tt := range []struct{ name, body string }{
+		{"empty", ""}, {"broken", "{"}, {"null", "null"}, {"array", "[]"}, {"missing", "{}"}, {"null field", `{"display_name":null}`},
+		{"blank display", `{"display_name":" \t"}`}, {"wrong type", `{"display_name":1}`},
+		{"http avatar", `{"avatar_url":"http://example.com/a"}`}, {"relative avatar", `{"avatar_url":"/a"}`},
+		{"missing host", `{"avatar_url":"https:///a"}`},
+		{"partial failure", `{"display_name":"Новое имя","avatar_url":"bad"}`},
+		{"two objects", `{"display_name":"Имя"} {}`}, {"trailing", `{"display_name":"Имя"} garbage`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assertCatalogError(t, catalogRequest(t, h, "PUT", "/users/1", tt.body), 400)
+			assertCatalogJSON(t, catalogRequest(t, h, "GET", "/users/1", "").Body.Bytes(), publicMockUserJSON)
+			assertCatalogJSON(t, catalogRequest(t, h, "GET", "/profile", "").Body.Bytes(), profileMockUserJSON)
+		})
+	}
+	for _, field := range []string{"email", "username", "password", "password_hash", "id", "name", "extra"} {
+		t.Run("forbidden/"+field, func(t *testing.T) {
+			body := `{"display_name":"Имя","` + field + `":"secret"}`
+			assertCatalogError(t, catalogRequest(t, h, "PUT", "/users/1", body), 400)
 		})
 	}
 }
 
 func TestUserMocksDoNotPersist(t *testing.T) {
 	h := New()
-	for _, operation := range []struct{ method, path string }{
-		{http.MethodPost, "/users"},
-		{http.MethodPut, "/users/1"},
+	for range 2 {
+		created := catalogRequest(t, h, "POST", "/users", createMockUserJSON)
+		if created.Code != 201 {
+			t.Fatalf("create status = %d", created.Code)
+		}
+		assertCatalogError(t, catalogRequest(t, h, "GET", "/users/2", ""), 404)
+		updated := catalogRequest(t, h, "PUT", "/users/1", `{"display_name":"Изменён","avatar_url":""}`)
+		if updated.Code != 200 {
+			t.Fatalf("update status = %d", updated.Code)
+		}
+		assertCatalogJSON(t, catalogRequest(t, h, "GET", "/users/1", "").Body.Bytes(), publicMockUserJSON)
+		assertCatalogJSON(t, catalogRequest(t, h, "GET", "/profile", "").Body.Bytes(), profileMockUserJSON)
+		assertCatalogJSON(t, catalogRequest(t, h, "PUT", "/users/1", `{"avatar_url":""}`).Body.Bytes(), `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":""}`)
+	}
+}
+
+func TestUserBodyLimits(t *testing.T) {
+	const limit = 65536
+	for _, endpoint := range []struct {
+		method, path, valid, want string
+		success                   int
+	}{
+		{http.MethodPost, "/users", createMockUserJSON, `{"id":2,"username":"roman_1","display_name":"Роман","avatar_url":""}`, http.StatusCreated},
+		{http.MethodPut, "/users/1", `{"avatar_url":""}`, `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":""}`, http.StatusOK},
 	} {
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(operation.method, operation.path, strings.NewReader(`{"name":"Изменён","email":"changed@example.com"}`))
-		h.router.ServeHTTP(response, request)
-		if response.Code != http.StatusOK && response.Code != http.StatusCreated {
-			t.Fatalf("mock write failed: %s", response.Body.String())
+		for _, tt := range []struct {
+			name, body string
+			status     int
+		}{
+			{"65536 bytes", endpoint.valid + strings.Repeat(" ", limit-len(endpoint.valid)), endpoint.success},
+			{"65537 bytes", endpoint.valid + strings.Repeat(" ", limit-len(endpoint.valid)+1), http.StatusRequestEntityTooLarge},
+			{"malformed 65536 bytes", "!" + strings.Repeat(" ", limit-1), http.StatusBadRequest},
+			{"malformed 65537 bytes", "!" + strings.Repeat(" ", limit), http.StatusRequestEntityTooLarge},
+			{"second object", endpoint.valid + " {}", http.StatusBadRequest},
+		} {
+			for _, unknownLength := range []bool{false, true} {
+				t.Run(endpoint.method+"/"+tt.name+map[bool]string{false: "/known length", true: "/unknown length"}[unknownLength], func(t *testing.T) {
+					h := New()
+					request := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader(tt.body))
+					request.Header.Set("Content-Type", "application/json")
+					if unknownLength {
+						request.ContentLength = -1
+						request.TransferEncoding = []string{"chunked"}
+					}
+					response := httptest.NewRecorder()
+					h.router.ServeHTTP(response, request)
+					if !strings.HasPrefix(response.Header().Get("Content-Type"), "application/json") {
+						t.Fatal("expected JSON response")
+					}
+					if tt.status >= 400 {
+						assertCatalogError(t, response, tt.status)
+					} else {
+						if response.Code != tt.status {
+							t.Fatalf("status = %d, want %d: %s", response.Code, tt.status, response.Body.String())
+						}
+						assertCatalogJSON(t, response.Body.Bytes(), endpoint.want)
+					}
+					assertCatalogJSON(t, catalogRequest(t, h, http.MethodGet, "/users/1", "").Body.Bytes(), publicMockUserJSON)
+					assertCatalogJSON(t, catalogRequest(t, h, http.MethodGet, "/profile", "").Body.Bytes(), profileMockUserJSON)
+				})
+			}
 		}
-	}
-	for _, path := range []string{"/users/1", "/profile"} {
-		response := httptest.NewRecorder()
-		h.router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
-		var user User
-		if err := json.Unmarshal(response.Body.Bytes(), &user); err != nil {
-			t.Fatal(err)
-		}
-		if response.Code != http.StatusOK || user != mockUser() {
-			t.Fatalf("mock changed after write: %s", response.Body.String())
-		}
-	}
-	response := httptest.NewRecorder()
-	h.router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/users/2", nil))
-	if response.Code != http.StatusNotFound {
-		t.Fatal("mock creation must not persist a user")
 	}
 }

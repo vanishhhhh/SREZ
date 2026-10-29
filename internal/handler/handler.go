@@ -17,6 +17,12 @@ func New() *Handler {
 	router.POST("/users", CreateUser)
 	router.PUT("/users/:id", UpdateUser)
 	router.GET("/profile", GetProfile)
+	router.GET("/health", GetHealth)
+	router.GET("/products", GetProducts)
+	router.GET("/products/:id", GetProduct)
+	router.POST("/products", CreateProduct)
+	router.GET("/brands", GetBrands)
+	router.GET("/brands/:slug", GetBrand)
 
 	return &Handler{router: router}
 }
