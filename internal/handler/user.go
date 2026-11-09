@@ -2,14 +2,18 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+
 	"srez/internal/entities"
+	"srez/internal/usecase"
 )
 
 type createUserRequest struct {
@@ -50,6 +54,21 @@ func mockUser() (*entities.User, error) {
 	})
 }
 
+type mockUserRepository struct{}
+
+func (mockUserRepository) Get(_ context.Context, id int64) (*entities.User, error) {
+	if id != 1 {
+		return nil, nil
+	}
+	return mockUser()
+}
+
+func (mockUserRepository) Insert(_ context.Context, user entities.User) (*entities.User, error) {
+	state := user.State()
+	state.ID = 2
+	return entities.RestoreUser(state)
+}
+
 // Strict decoding is local to User endpoints; Gin settings are unchanged.
 func decodeUserRequest(c *gin.Context, target any) bool {
 	body, ok := readJSONBody(c)
@@ -69,37 +88,39 @@ func decodeUserRequest(c *gin.Context, target any) bool {
 	return true
 }
 
-func GetUser(c *gin.Context) {
+func (h *Handler) GetUser(c *gin.Context) {
 	id, ok := userID(c)
 	if !ok {
 		return
 	}
-	user, err := mockUser()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось подготовить тестового пользователя"})
+	user, err := h.users.Get(c.Request.Context(), id)
+	if errors.Is(err, usecase.ErrUserNotFound) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "пользователь не найден"})
 		return
 	}
-	if id != user.ID() {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "пользователь не найден"})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось получить пользователя"})
 		return
 	}
 	c.JSON(http.StatusOK, publicUserDTO(*user))
 }
 
-// CreateUser returns an unsaved example, not a registration result.
-func CreateUser(c *gin.Context) {
+func (h *Handler) CreateUser(c *gin.Context) {
 	var request createUserRequest
 	if !decodeUserRequest(c, &request) {
 		return
 	}
-	user, err := entities.NewUser(request.Email, request.Username, request.DisplayName, mockUserPasswordHash, time.Now().UTC())
-	if err != nil {
+	user, err := h.users.Create(c.Request.Context(), request.Email, request.Username, request.DisplayName)
+	switch {
+	case errors.Is(err, entities.ErrInvalidValue):
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "некорректные данные пользователя"})
-		return
+	case errors.Is(err, usecase.ErrUsernameTaken):
+		c.JSON(http.StatusConflict, errorResponse{Error: "имя пользователя уже занято"})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось создать пользователя"})
+	default:
+		c.JSON(http.StatusCreated, publicUserDTO(*user))
 	}
-	response := publicUserDTO(*user)
-	response.ID = 2 // DTO example only: the new entity has ID 0 and is not stored.
-	c.JSON(http.StatusCreated, response)
 }
 
 // UpdateUser changes only a fresh copy of the fixed example.
