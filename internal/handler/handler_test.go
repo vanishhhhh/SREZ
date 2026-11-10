@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetProjects(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/projects", nil)
 

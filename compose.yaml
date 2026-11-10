@@ -1,4 +1,14 @@
 services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: "postgres://srez:srez_dev@db:5432/srez?sslmode=disable"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:16-alpine
     environment:
