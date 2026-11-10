@@ -62,7 +62,7 @@ func assertCatalogError(t *testing.T, response *httptest.ResponseRecorder, statu
 }
 
 func TestCatalogGETEndpoints(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct{ path, want string }{
 		{"/health", `{"status":"ok"}`},
 		{"/products", "[" + firstProductJSON + "," + secondProductJSON + "]"},
@@ -84,7 +84,7 @@ func TestCatalogGETEndpoints(t *testing.T) {
 }
 
 func TestCatalogGETErrors(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct {
 		path   string
 		status int
@@ -104,7 +104,7 @@ func TestCatalogGETErrors(t *testing.T) {
 }
 
 func TestCreateProduct(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct{ name, body, want string }{
 		{"full draft with normalization", `{"brand_id":1,"name":" Футболка ","description":" Описание ","price_kopecks":125000,"category":"tshirt","materials":[" хлопок "]}`,
 			`{"id":3,"brand_id":1,"name":"Футболка","description":"Описание","price_kopecks":125000,"category":"tshirt","materials":["хлопок"],"status":"draft"}`},
@@ -146,7 +146,7 @@ func TestCreateProduct(t *testing.T) {
 }
 
 func TestCreateProductErrors(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct{ name, body string }{
 		{"empty body", ""}, {"broken JSON", "{"}, {"null", "null"}, {"array", "[]"}, {"scalar", "true"},
 		{"two objects", `{"brand_id":1,"name":"Товар"} {}`},
@@ -179,7 +179,7 @@ func TestCreateProductErrors(t *testing.T) {
 }
 
 func TestProductMocksDoNotPersist(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	paths := []string{"/products", "/products/1", "/products/2", "/brands", "/brands/srez-studio", "/brands/linea"}
 	before := make(map[string]string, len(paths))
 	for _, path := range paths {
@@ -216,7 +216,7 @@ func TestProductDetailVariantsBelongToColors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := New()
+	h := newTestHandler()
 	for _, entry := range entries {
 		path := "/products/1"
 		if entry.product.ID() == 2 {
@@ -274,7 +274,7 @@ func TestCreateProductBodyLimit(t *testing.T) {
 					request.TransferEncoding = []string{"chunked"}
 				}
 				response := httptest.NewRecorder()
-				New().router.ServeHTTP(response, request)
+				newTestHandler().router.ServeHTTP(response, request)
 				if !strings.HasPrefix(response.Header().Get("Content-Type"), "application/json") {
 					t.Fatal("expected JSON response")
 				}

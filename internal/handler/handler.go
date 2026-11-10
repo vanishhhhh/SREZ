@@ -13,20 +13,15 @@ type Handler struct {
 	users  *usecase.Users
 }
 
-func New() *Handler {
-	return NewWithUsers(nil)
-}
-
 func NewWithUsers(users *usecase.Users) *Handler {
-	if users == nil {
-		users = usecase.NewUsers(mockUserRepository{})
-	}
 	router := gin.Default()
 	h := &Handler{router: router, users: users}
 	router.GET("/projects", GetProjects)
+	router.GET("/users", h.ListUsers)
 	router.GET("/users/:id", h.GetUser)
 	router.POST("/users", h.CreateUser)
-	router.PUT("/users/:id", UpdateUser)
+	router.PUT("/users/:id", h.UpdateUser)
+	router.DELETE("/users/:id", h.DeleteUser)
 	router.GET("/profile", GetProfile)
 	router.GET("/health", GetHealth)
 	router.GET("/products", GetProducts)

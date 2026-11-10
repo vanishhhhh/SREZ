@@ -1,6 +1,6 @@
 # SREZ — учебный HTTP-сервер
 
-Учебный сервер на Go и Gin. Карточка и создание пользователя могут работать через PostgreSQL. Также доступны исходный список проектов, проверка HTTP-процесса и тестовый каталог брендов и товаров. Доменные сущности находятся в `internal/entities`, HTTP-запросы и ответы используют отдельные DTO.
+Учебный сервер на Go и Gin. Ручки пользователей работают через PostgreSQL. Также доступны исходный список проектов, проверка HTTP-процесса и тестовый каталог брендов и товаров. Доменные сущности находятся в `internal/entities`, HTTP-запросы и ответы используют отдельные DTO.
 
 ## Структура
 
@@ -18,47 +18,55 @@ internal/handler/catalog_dto.go    DTO каталога и преобразов�
 internal/handler/catalog_mock.go   фиксированные доменные примеры
 internal/handler/catalog_test.go   HTTP-тесты каталога и health
 internal/entities/                сущности, валидация и доменные тесты
-internal/usecase/user.go           сценарии карточки и создания пользователя
+internal/usecase/user.go           сценарии работы с пользователями
 internal/storage/user.go           запросы пользователей к PostgreSQL через sqlx
 migrations/001_users.sql           создание таблицы пользователей
-compose.yaml                       PostgreSQL для локальной разработки
+compose.yaml                       Go-сервер и PostgreSQL для локальной разработки
 Dockerfile                        сборка контейнерного образа
 SPEC.md                           исходный учебный пример каталога проектов
 ```
 
-## Локальный запуск
+## Запуск через Docker Compose
 
-Требуется Go 1.27.2 или новее. Команды ниже предназначены для PowerShell и выполняются из корня проекта.
+Из корня проекта при запущенном Docker Desktop:
 
 ```powershell
+docker compose up --build -d
+curl.exe -i http://localhost:8080/health
+curl.exe -i http://localhost:8080/users
+```
+
+Compose запускает PostgreSQL и Go-сервер. Сервер получает `DATABASE_URL` из Compose и запускается после готовности базы. При первом создании тома PostgreSQL применяет `migrations/001_users.sql`. Пустая таблица пользователей возвращается как `[]`.
+
+Для остановки сервера и базы с сохранением данных:
+
+```powershell
+docker compose down
+```
+
+## Запуск Go из GoLand
+
+Для отладки вне контейнера нужен Go 1.27.2 или новее. В PowerShell из корня проекта:
+
+```powershell
+docker compose up -d --wait db
+$env:DATABASE_URL = "postgres://srez:srez_dev@localhost:5432/srez?sslmode=disable"
 go run ./cmd/app
 ```
 
-Проверка работающего сервера из второго терминала:
-
-```powershell
-curl.exe -i http://localhost:8080/projects
-```
-
-Альтернативный способ проверки — переход по адресу `http://localhost:8080/projects` в браузере. Ожидаемый статус — `200`, тело ответа:
-
-```json
-[{"id":1,"title":"Дело"},{"id":2,"title":"Витрина"}]
-```
-
-Порядок полей `id` и `title` внутри объекта не влияет на смысл JSON.
-
-Остановка сервера выполняется сочетанием `Ctrl+C` в терминале, в котором он запущен.
+Для запуска из конфигурации GoLand нужно задать тот же `DATABASE_URL` в **Environment variables**. Сервер требует доступную базу при старте. Если на порту 8080 уже запущен сервис `app`, его можно остановить командой `docker compose stop app`.
 
 ## Ручки пользователей
 
-При заданном `DATABASE_URL` маршруты `GET /users/:id` и `POST /users` используют PostgreSQL. Без этой настройки они работают с демонстрационным хранилищем. `PUT /users/:id` и `GET /profile` в обоих режимах используют фиксированного тестового пользователя `1`. Список и удаление пользователей относятся к следующему этапу.
+Все маршруты `/users` используют PostgreSQL. `GET /profile` пока возвращает демонстрационный профиль, так как аутентификация ещё не добавлена.
 
 | Метод | Путь | Ответ |
 | --- | --- | --- |
+| GET | `/users` | `200`, массив публичных DTO в порядке ID |
 | GET | `/users/:id` | `200`, публичный DTO: `id`, `username`, `display_name`, `avatar_url` |
-| POST | `/users` | `201`, публичный DTO с ID записи из PostgreSQL либо условным `id: 2` в демонстрационном режиме |
-| PUT | `/users/1` | `200`, обновлённый публичный DTO с `id: 1` |
+| POST | `/users` | `201`, публичный DTO с ID записи из PostgreSQL |
+| PUT | `/users/:id` | `200`, обновлённый публичный DTO |
+| DELETE | `/users/:id` | `204`, запись удалена, тело ответа пустое |
 | GET | `/profile` | `200`, `id`, `email`, `username`, `display_name`, `avatar_url` |
 
 ID должен быть положительным int64. Отсутствующий пользователь даёт `404`, некорректный ID или переполнение — `400`. Ошибки имеют вид `{"error":"описание"}`.
@@ -77,44 +85,26 @@ ID должен быть положительным int64. Отсутствую�
 {"display_name":"Рома","avatar_url":"https://example.com/avatar.png"}
 ```
 
-Пропущенное поле сохраняет значение тестового пользователя. Пустая строка
-`avatar_url` удаляет аватар; непустой URL должен быть HTTPS. Пустой display_name
-после обрезки пробелов запрещён. Используются методы `ChangeDisplayName` и
-`ChangeAvatar`; смены email, username и пароля нет. Пустое обновление даёт `400`.
-Если одна из проверок не прошла, ответ с частично обновлённым DTO не возвращается.
+Пропущенные поля сохраняются. Пустая строка в `avatar_url` удаляет аватар, а непустой URL должен использовать HTTPS. Пустое обновление, неверные поля или неверный JSON дают `400`.
 
-POST и PUT требуют один JSON-объект: неизвестные поля, неверные типы,
-ошибки JSON, дополнительные объекты и доменные ошибки дают `400`.
-Старое поле `name` больше не поддерживается. Для PUT сначала проверяются ID
-и наличие тестового пользователя, затем тело запроса.
-
-В демонстрационном режиме POST возвращает условный ID `2` без сохранения. GET в этом режиме знает только пользователя `1`. В режиме PostgreSQL новая таблица пуста до первого POST, а последующие GET читают сохранённые записи. PUT меняет временную копию тестового пользователя.
-
-Проверка в PowerShell при запущенном сервере:
+Проверка CRUD в PowerShell при запущенном сервере:
 
 ```powershell
-curl.exe -i http://localhost:8080/users/1
-curl.exe -i http://localhost:8080/profile
-
-$createUserBody = @{ email = "roman@example.com"; username = "roman_1"; display_name = "Роман" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8080/users -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($createUserBody))
-$updateUserBody = @{ display_name = "Рома"; avatar_url = "" } | ConvertTo-Json
-Invoke-RestMethod -Method Put -Uri http://localhost:8080/users/1 -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($updateUserBody))
+$base = "http://localhost:8080"
+$body = @{ email = "roman@example.com"; username = "roman_1"; display_name = "Роман" } | ConvertTo-Json
+$user = Invoke-RestMethod -Method Post -Uri "$base/users" -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($body))
+$card = "$base/users/$($user.id)"
+Invoke-RestMethod -Method Get -Uri "$base/users"
+Invoke-RestMethod -Method Get -Uri $card
+$update = @{ display_name = "Рома" } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri $card -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($update))
+Invoke-RestMethod -Method Delete -Uri $card
+curl.exe -i $card
 ```
+
+Последний GET возвращает `404`.
 
 `SPEC.md` относится к исходному учебному примеру каталога проектов. Актуальное ТЗ маркетплейса SREZ ведётся отдельно; `SPEC.md` не является его актуальной спецификацией.
-
-## Запуск с PostgreSQL
-
-Команды для PowerShell из корня проекта при запущенном Docker Desktop:
-
-```powershell
-docker compose up -d --wait db
-$env:DATABASE_URL = "postgres://srez:srez_dev@localhost:5432/srez?sslmode=disable"
-go run ./cmd/app
-```
-
-При первом создании тома PostgreSQL применяет `migrations/001_users.sql`. Для проверки из второго терминала сначала выполняется POST из примера выше, затем `GET /users/<id>` с ID из ответа. Повторный POST с тем же `username` возвращает `409`. Команда `docker compose down` останавливает базу и сохраняет том. Чтобы вернуться в демонстрационный режим в текущем PowerShell, после остановки сервера можно выполнить `Remove-Item Env:DATABASE_URL`.
 
 ## Бренды, товары и health
 
@@ -215,29 +205,6 @@ go run ./cmd/app
 Remove-Item Env:HTTP_ADDR
 ```
 
-## Docker
-
-Для сборки и запуска требуется работающий Docker Desktop с готовым движком Linux-контейнеров. При первой сборке загружаются базовый образ и зависимости; требуется подключение к интернету.
-
-```powershell
-docker build -t srez:lesson3 .
-docker run --rm --name srez-lesson3 -p 8080:8080 srez:lesson3
-```
-
-Для запуска контейнера порт 8080 должен быть свободен. Если порт занят локальным сервером, его необходимо остановить. Проверка ответа контейнера выполняется из другого терминала:
-
-```powershell
-curl.exe -i http://localhost:8080/projects
-```
-
-Остановка контейнера:
-
-```powershell
-docker stop srez-lesson3
-```
-
-Dockerfile собирает Linux-бинарник в первом этапе, а во второй образ копирует только готовую программу. Базовая версия Go совпадает с `go.mod`. Порт контейнера — 8080; переменную `HTTP_ADDR` можно переопределить через `docker run -e`.
-
 ## Проверки
 
 ```powershell
@@ -246,7 +213,7 @@ go vet ./...
 go build -o ./bin/srez.exe ./cmd/app
 ```
 
-Автотесты проверяют HTTP-статусы, JSON-контракты и обработку ошибок в демонстрационном режиме, а также правила доменных сущностей. Последовательность POST → GET и конфликт `username` в PostgreSQL можно проверить командами выше.
+Автотесты используют тестовое хранилище и проверяют HTTP-ответы и правила доменных сущностей. Полный цикл через PostgreSQL можно проверить командами выше.
 
 ## Путь запроса
 

@@ -1,18 +1,70 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"srez/internal/entities"
+	"srez/internal/usecase"
 )
+
+func newTestHandler() *Handler {
+	return NewWithUsers(usecase.NewUsers(mockUserRepository{}))
+}
+
+type mockUserRepository struct{}
+
+func (mockUserRepository) List(_ context.Context) ([]entities.User, error) {
+	user, err := mockUser()
+	if err != nil {
+		return nil, err
+	}
+	return []entities.User{*user}, nil
+}
+
+func (mockUserRepository) Get(_ context.Context, id int64) (*entities.User, error) {
+	if id != 1 {
+		return nil, nil
+	}
+	return mockUser()
+}
+
+func (mockUserRepository) Insert(_ context.Context, user entities.User) (*entities.User, error) {
+	state := user.State()
+	state.ID = 2
+	return entities.RestoreUser(state)
+}
+
+func (r mockUserRepository) Update(ctx context.Context, id int64, displayName, avatarURL *string, now time.Time) (*entities.User, error) {
+	user, err := r.Get(ctx, id)
+	if err != nil || user == nil {
+		return user, err
+	}
+	state := user.State()
+	if displayName != nil {
+		state.DisplayName = *displayName
+	}
+	if avatarURL != nil {
+		state.AvatarURL = *avatarURL
+	}
+	state.UpdatedAt = now
+	return entities.RestoreUser(state)
+}
+
+func (mockUserRepository) Delete(_ context.Context, id int64) (bool, error) {
+	return id == 1, nil
+}
 
 const publicMockUserJSON = `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
 const profileMockUserJSON = `{"id":1,"email":"demo@example.com","username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
 const createMockUserJSON = `{"email":"roman@example.com","username":"roman_1","display_name":" Роман "}`
 
 func TestUserEndpoints(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct {
 		name, method, path, body string
 		status                   int
@@ -36,7 +88,7 @@ func TestUserEndpoints(t *testing.T) {
 }
 
 func TestUserIDs(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, method := range []string{http.MethodGet, http.MethodPut} {
 		for _, tt := range []struct {
 			id     string
@@ -52,7 +104,7 @@ func TestUserIDs(t *testing.T) {
 }
 
 func TestCreateUserErrors(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct{ name, body string }{
 		{"empty", ""}, {"broken", "{"}, {"null", "null"}, {"array", "[]"}, {"scalar", "true"}, {"missing", "{}"},
 		{"two objects", createMockUserJSON + " {}"}, {"trailing", createMockUserJSON + " garbage"},
@@ -78,7 +130,7 @@ func TestCreateUserErrors(t *testing.T) {
 }
 
 func TestUpdateUserErrors(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for _, tt := range []struct{ name, body string }{
 		{"empty", ""}, {"broken", "{"}, {"null", "null"}, {"array", "[]"}, {"missing", "{}"}, {"null field", `{"display_name":null}`},
 		{"blank display", `{"display_name":" \t"}`}, {"wrong type", `{"display_name":1}`},
@@ -102,7 +154,7 @@ func TestUpdateUserErrors(t *testing.T) {
 }
 
 func TestUserMocksDoNotPersist(t *testing.T) {
-	h := New()
+	h := newTestHandler()
 	for range 2 {
 		created := catalogRequest(t, h, "POST", "/users", createMockUserJSON)
 		if created.Code != 201 {
@@ -140,7 +192,7 @@ func TestUserBodyLimits(t *testing.T) {
 		} {
 			for _, unknownLength := range []bool{false, true} {
 				t.Run(endpoint.method+"/"+tt.name+map[bool]string{false: "/known length", true: "/unknown length"}[unknownLength], func(t *testing.T) {
-					h := New()
+					h := newTestHandler()
 					request := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader(tt.body))
 					request.Header.Set("Content-Type", "application/json")
 					if unknownLength {
