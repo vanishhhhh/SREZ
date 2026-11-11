@@ -12,6 +12,7 @@ import (
 	"srez/internal/handler"
 	"srez/internal/storage"
 	"srez/internal/usecase"
+	"srez/migrations"
 )
 
 func main() {
@@ -26,9 +27,20 @@ func main() {
 		log.Fatal("не удалось подключиться к PostgreSQL: проверьте DATABASE_URL и доступность базы")
 	}
 	defer db.Close()
+	migrationCtx, migrationCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer migrationCancel()
+	if err := migrations.Apply(migrationCtx, db); err != nil {
+		log.Fatalf("не удалось применить миграции: %v", err)
+	}
+	brandsRepo := storage.NewBrands(db)
+	brands := usecase.NewBrands(brandsRepo)
+	products := usecase.NewProducts(storage.NewProducts(db), brandsRepo)
 	users := usecase.NewUsers(storage.NewUsers(db))
-	h := handler.NewWithUsers(users)
+	h := handler.New(users, brands, products, cfg.DevCatalogWrite)
 
+	if cfg.DevCatalogWrite {
+		log.Print("ВНИМАНИЕ: включён локальный POST /products без авторизации")
+	}
 	log.Printf("HTTP-сервер запускается на %s", cfg.Addr)
 	if err := h.Run(cfg.Addr); err != nil {
 		log.Fatalf("не удалось запустить HTTP-сервер: %v", err)

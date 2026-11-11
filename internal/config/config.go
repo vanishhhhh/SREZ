@@ -3,15 +3,16 @@ package config
 import "os"
 
 type Config struct {
-	Addr        string
-	DatabaseURL string
+	Addr            string
+	DatabaseURL     string
+	DevCatalogWrite bool
 }
 
 func Must() Config {
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {
-		addr = ":8080"
+		addr = "127.0.0.1:8080"
 	}
 
-	return Config{Addr: addr, DatabaseURL: os.Getenv("DATABASE_URL")}
+	return Config{Addr: addr, DatabaseURL: os.Getenv("DATABASE_URL"), DevCatalogWrite: os.Getenv("SREZ_DEV_CATALOG_WRITE") == "true"}
 }

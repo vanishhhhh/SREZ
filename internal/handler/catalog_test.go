@@ -2,9 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"srez/internal/entities"
+	"srez/internal/usecase"
 	"strings"
 	"testing"
 	"time"
@@ -62,7 +65,7 @@ func assertCatalogError(t *testing.T, response *httptest.ResponseRecorder, statu
 }
 
 func TestCatalogGETEndpoints(t *testing.T) {
-	h := newTestHandler()
+	h := newTestCatalogHandler()
 	for _, tt := range []struct{ path, want string }{
 		{"/health", `{"status":"ok"}`},
 		{"/products", "[" + firstProductJSON + "," + secondProductJSON + "]"},
@@ -84,7 +87,7 @@ func TestCatalogGETEndpoints(t *testing.T) {
 }
 
 func TestCatalogGETErrors(t *testing.T) {
-	h := newTestHandler()
+	h := newTestCatalogHandler()
 	for _, tt := range []struct {
 		path   string
 		status int
@@ -104,7 +107,6 @@ func TestCatalogGETErrors(t *testing.T) {
 }
 
 func TestCreateProduct(t *testing.T) {
-	h := newTestHandler()
 	for _, tt := range []struct{ name, body, want string }{
 		{"full draft with normalization", `{"brand_id":1,"name":" Футболка ","description":" Описание ","price_kopecks":125000,"category":"tshirt","materials":[" хлопок "]}`,
 			`{"id":3,"brand_id":1,"name":"Футболка","description":"Описание","price_kopecks":125000,"category":"tshirt","materials":["хлопок"],"status":"draft"}`},
@@ -112,10 +114,9 @@ func TestCreateProduct(t *testing.T) {
 			`{"id":3,"brand_id":1,"name":"Товар","description":"","price_kopecks":0,"category":"","materials":[],"status":"draft"}`},
 		{"zero price", `{"brand_id":2,"name":"Товар","price_kopecks":0,"category":"other","materials":[]}`,
 			`{"id":3,"brand_id":2,"name":"Товар","description":"","price_kopecks":0,"category":"other","materials":[],"status":"draft"}`},
-		{"brand existence belongs to future usecase", `{"brand_id":999,"name":"Товар"}`,
-			`{"id":3,"brand_id":999,"name":"Товар","description":"","price_kopecks":0,"category":"","materials":[],"status":"draft"}`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			h := newTestCatalogHandler()
 			response := catalogRequest(t, h, http.MethodPost, "/products", tt.body)
 			if response.Code != http.StatusCreated {
 				t.Fatalf("status = %d; body = %s", response.Code, response.Body.String())
@@ -146,7 +147,7 @@ func TestCreateProduct(t *testing.T) {
 }
 
 func TestCreateProductErrors(t *testing.T) {
-	h := newTestHandler()
+	h := newTestCatalogHandler()
 	for _, tt := range []struct{ name, body string }{
 		{"empty body", ""}, {"broken JSON", "{"}, {"null", "null"}, {"array", "[]"}, {"scalar", "true"},
 		{"two objects", `{"brand_id":1,"name":"Товар"} {}`},
@@ -178,14 +179,14 @@ func TestCreateProductErrors(t *testing.T) {
 	}
 }
 
-func TestProductMocksDoNotPersist(t *testing.T) {
-	h := newTestHandler()
+func TestDraftsAreSavedButNotPublic(t *testing.T) {
+	h := newTestCatalogHandler()
 	paths := []string{"/products", "/products/1", "/products/2", "/brands", "/brands/srez-studio", "/brands/linea"}
 	before := make(map[string]string, len(paths))
 	for _, path := range paths {
 		before[path] = catalogRequest(t, h, http.MethodGet, path, "").Body.String()
 	}
-	for range 2 {
+	for id := int64(3); id <= 4; id++ {
 		response := catalogRequest(t, h, http.MethodPost, "/products", `{"brand_id":1,"name":"Новый товар"}`)
 		if response.Code != http.StatusCreated {
 			t.Fatalf("status = %d", response.Code)
@@ -197,7 +198,7 @@ func TestProductMocksDoNotPersist(t *testing.T) {
 		if err := json.Unmarshal(response.Body.Bytes(), &draft); err != nil {
 			t.Fatal(err)
 		}
-		if draft.ID != 3 || draft.Status != "draft" {
+		if draft.ID != id || draft.Status != "draft" {
 			t.Fatalf("unexpected draft: %s", response.Body.String())
 		}
 		assertCatalogError(t, catalogRequest(t, h, http.MethodGet, "/products/3", ""), http.StatusNotFound)
@@ -206,7 +207,7 @@ func TestProductMocksDoNotPersist(t *testing.T) {
 	for _, path := range paths {
 		response := catalogRequest(t, h, http.MethodGet, path, "")
 		if response.Code != http.StatusOK || response.Body.String() != before[path] {
-			t.Fatalf("mock changed after POST: %s: %s", path, response.Body.String())
+			t.Fatalf("public catalog changed after POST: %s: %s", path, response.Body.String())
 		}
 	}
 }
@@ -216,7 +217,7 @@ func TestProductDetailVariantsBelongToColors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := newTestHandler()
+	h := newTestCatalogHandler()
 	for _, entry := range entries {
 		path := "/products/1"
 		if entry.product.ID() == 2 {
@@ -274,7 +275,7 @@ func TestCreateProductBodyLimit(t *testing.T) {
 					request.TransferEncoding = []string{"chunked"}
 				}
 				response := httptest.NewRecorder()
-				newTestHandler().router.ServeHTTP(response, request)
+				newTestCatalogHandler().router.ServeHTTP(response, request)
 				if !strings.HasPrefix(response.Header().Get("Content-Type"), "application/json") {
 					t.Fatal("expected JSON response")
 				}
@@ -284,6 +285,44 @@ func TestCreateProductBodyLimit(t *testing.T) {
 					t.Fatalf("status = %d, want %d: %s", response.Code, tt.status, response.Body.String())
 				}
 			})
+		}
+	}
+}
+
+func TestCatalogWriteDisabledByDefault(t *testing.T) {
+	h := newTestCatalogHandler()
+	h.devCatalogWrite = false
+	assertCatalogError(t, catalogRequest(t, h, "POST", "/products", `{"brand_id":1,"name":"Товар"}`), 403)
+}
+
+func TestCatalogBrandChecks(t *testing.T) {
+	h := newTestCatalogHandler()
+	assertCatalogError(t, catalogRequest(t, h, "POST", "/products", `{"brand_id":999,"name":"Товар"}`), 404)
+	r := newCatalogRepository()
+	state := r.brands[0].State()
+	state.Status = "suspended"
+	b, err := entities.RestoreBrand(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.brands[0] = *b
+	h = New(usecase.NewUsers(mockUserRepository{}), usecase.NewBrands(r), usecase.NewProducts(r, r), true)
+	assertCatalogError(t, catalogRequest(t, h, "POST", "/products", `{"brand_id":1,"name":"Товар"}`), 409)
+	assertCatalogError(t, catalogRequest(t, h, "GET", "/brands/srez-studio", ""), 404)
+	assertCatalogError(t, catalogRequest(t, h, "GET", "/products/1", ""), 404)
+}
+
+func TestCatalogStorageErrorsArePrivate(t *testing.T) {
+	r := newCatalogRepository()
+	r.err = errors.New("secret SQL connection details")
+	h := New(usecase.NewUsers(mockUserRepository{}), usecase.NewBrands(r), usecase.NewProducts(r, r), true)
+	for _, tt := range []struct{ method, path, body string }{
+		{"GET", "/brands", ""}, {"GET", "/brands/srez-studio", ""}, {"GET", "/products", ""}, {"GET", "/products/1", ""}, {"POST", "/products", `{"brand_id":1,"name":"Товар"}`},
+	} {
+		response := catalogRequest(t, h, tt.method, tt.path, tt.body)
+		assertCatalogError(t, response, 500)
+		if strings.Contains(response.Body.String(), "secret") {
+			t.Fatal("storage error leaked")
 		}
 	}
 }

@@ -9,13 +9,20 @@ import (
 )
 
 type Handler struct {
-	router *gin.Engine
-	users  *usecase.Users
+	router          *gin.Engine
+	users           *usecase.Users
+	brands          *usecase.Brands
+	products        *usecase.Products
+	devCatalogWrite bool
 }
 
 func NewWithUsers(users *usecase.Users) *Handler {
+	return New(users, nil, nil, false)
+}
+
+func New(users *usecase.Users, brands *usecase.Brands, products *usecase.Products, devCatalogWrite bool) *Handler {
 	router := gin.Default()
-	h := &Handler{router: router, users: users}
+	h := &Handler{router: router, users: users, brands: brands, products: products, devCatalogWrite: devCatalogWrite}
 	router.GET("/projects", GetProjects)
 	router.GET("/users", h.ListUsers)
 	router.GET("/users/:id", h.GetUser)
@@ -24,11 +31,13 @@ func NewWithUsers(users *usecase.Users) *Handler {
 	router.DELETE("/users/:id", h.DeleteUser)
 	router.GET("/profile", GetProfile)
 	router.GET("/health", GetHealth)
-	router.GET("/products", GetProducts)
-	router.GET("/products/:id", GetProduct)
-	router.POST("/products", CreateProduct)
-	router.GET("/brands", GetBrands)
-	router.GET("/brands/:slug", GetBrand)
+	if brands != nil && products != nil {
+		router.GET("/products", h.GetProducts)
+		router.GET("/products/:id", h.GetProduct)
+		router.POST("/products", h.CreateProduct)
+		router.GET("/brands", h.GetBrands)
+		router.GET("/brands/:slug", h.GetBrand)
+	}
 
 	return h
 }

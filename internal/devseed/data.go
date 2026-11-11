@@ -1,4 +1,4 @@
-package handler
+package devseed
 
 import (
 	"fmt"
@@ -7,14 +7,13 @@ import (
 	"srez/internal/entities"
 )
 
-func mockCatalogTime() time.Time {
+func catalogTime() time.Time {
 	return time.Date(2026, time.October, 28, 12, 0, 0, 0, time.UTC)
 }
 
-// Each call builds fixed examples from scratch. There is no mutable catalog
-// or persistence, and POST never changes these fixtures.
-func mockBrands() ([]entities.Brand, error) {
-	now := mockCatalogTime()
+// Demonstration fixtures are used only by the explicit development seed.
+func Brands() ([]entities.Brand, error) {
+	now := catalogTime()
 	states := []entities.BrandState{
 		{
 			ID: 1, Name: "Срез Студия", Slug: "srez-studio", Description: "Базовая одежда на каждый день.",
@@ -43,30 +42,18 @@ func mockBrands() ([]entities.Brand, error) {
 	return brands, nil
 }
 
-type mockProductEntry struct {
-	product     entities.Product
-	publication entities.ProductPublication
+type ProductEntry struct {
+	Product     entities.Product
+	Publication entities.ProductPublication
 }
 
-func mockProducts() ([]entities.Product, error) {
-	entries, err := mockProductCatalog()
-	if err != nil {
-		return nil, err
-	}
-	products := make([]entities.Product, 0, len(entries))
-	for _, entry := range entries {
-		products = append(products, entry.product)
-	}
-	return products, nil
-}
-
-func mockProductCatalog() ([]mockProductEntry, error) {
-	now := mockCatalogTime()
+func Products() ([]ProductEntry, error) {
+	now := catalogTime()
 	states := []entities.ProductState{
 		{ID: 1, BrandID: 1, Name: "Футболка База", Description: "Хлопковая футболка свободного кроя.", PriceKopecks: 250000, Category: entities.CategoryTShirt, Materials: []string{"хлопок"}, Status: entities.ProductDraft, CreatedAt: now, UpdatedAt: now},
 		{ID: 2, BrandID: 2, Name: "Худи Город", Description: "Худи с капюшоном для прохладной погоды.", PriceKopecks: 650000, Category: entities.CategoryHoodie, Materials: []string{"хлопок", "полиэстер"}, Status: entities.ProductDraft, CreatedAt: now, UpdatedAt: now},
 	}
-	products := make([]mockProductEntry, 0, len(states))
+	products := make([]ProductEntry, 0, len(states))
 	for _, state := range states {
 		product, err := entities.RestoreProduct(state)
 		if err != nil {
@@ -102,7 +89,7 @@ func mockProductCatalog() ([]mockProductEntry, error) {
 		if err := product.Publish(publication, now); err != nil {
 			return nil, err
 		}
-		products = append(products, mockProductEntry{product: *product, publication: publication})
+		products = append(products, ProductEntry{Product: *product, Publication: publication})
 	}
 	return products, nil
 }

@@ -2,7 +2,8 @@ services:
   app:
     build: .
     environment:
-      DATABASE_URL: "postgres://srez:srez_dev@db:5432/srez?sslmode=disable"
+      DATABASE_URL: "postgres://srez:${POSTGRES_PASSWORD:?copy .env.example to .env}@db:5432/srez?sslmode=disable"
+      SREZ_DEV_CATALOG_WRITE: "${SREZ_DEV_CATALOG_WRITE:-false}"
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -13,13 +14,12 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: srez
-      POSTGRES_PASSWORD: srez_dev
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?copy .env.example to .env}"
       POSTGRES_DB: srez
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations/001_users.sql:/docker-entrypoint-initdb.d/001_users.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U srez -d srez"]
       interval: 2s

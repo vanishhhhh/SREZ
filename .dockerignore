@@ -3,3 +3,6 @@
 bin
 *.exe
 *.log
+
+.env
+.env.*

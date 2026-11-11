@@ -1,220 +1,163 @@
-# SREZ — учебный HTTP-сервер
+# SREZ — учебный маркетплейс
 
-Учебный сервер на Go и Gin. Ручки пользователей работают через PostgreSQL. Также доступны исходный список проектов, проверка HTTP-процесса и тестовый каталог брендов и товаров. Доменные сущности находятся в `internal/entities`, HTTP-запросы и ответы используют отдельные DTO.
+Go + Gin + PostgreSQL. Пользователи, бренды и товары хранятся в PostgreSQL через sqlx. HTTP использует отдельные DTO; доменные сущности напрямую не сериализуются.
 
-## Структура
+## Запуск на macOS / Apple Silicon
 
-```text
-cmd/app/main.go                    точка входа: конфигурация и запуск
-internal/config/config.go          HTTP_ADDR и DATABASE_URL
-internal/handler/handler.go        Gin, маршруты, обработчик и запуск HTTP
-internal/handler/handler_test.go   проверка HTTP-ответа
-internal/handler/user.go           HTTP-обработчики пользователей
-internal/handler/user_test.go      проверки ручек пользователей
-internal/handler/health.go         проверка HTTP-процесса
-internal/handler/product.go        моковые ручки товаров
-internal/handler/brand.go          моковые ручки брендов
-internal/handler/catalog_dto.go    DTO каталога и преобразование сущностей
-internal/handler/catalog_mock.go   фиксированные доменные примеры
-internal/handler/catalog_test.go   HTTP-тесты каталога и health
-internal/entities/                сущности, валидация и доменные тесты
-internal/usecase/user.go           сценарии работы с пользователями
-internal/storage/user.go           запросы пользователей к PostgreSQL через sqlx
-migrations/001_users.sql           создание таблицы пользователей
-compose.yaml                       Go-сервер и PostgreSQL для локальной разработки
-Dockerfile                        сборка контейнерного образа
-SPEC.md                           исходный учебный пример каталога проектов
-```
+Нужны Docker Desktop с включённым Engine и Docker Compose. Образы собираются под архитектуру хоста; `platform: linux/amd64` и эмуляция не нужны.
 
-## Запуск через Docker Compose
-
-Из корня проекта при запущенном Docker Desktop:
-
-```powershell
+```sh
+cp .env.example .env
 docker compose up --build -d
-curl.exe -i http://localhost:8080/health
-curl.exe -i http://localhost:8080/users
+curl -i http://localhost:8080/health
+curl -i http://localhost:8080/brands
+curl -i http://localhost:8080/products
 ```
 
-Compose запускает PostgreSQL и Go-сервер. Сервер получает `DATABASE_URL` из Compose и запускается после готовности базы. При первом создании тома PostgreSQL применяет `migrations/001_users.sql`. Пустая таблица пользователей возвращается как `[]`.
+`.env` содержит только локальные настройки, игнорируется Git и исключён из Docker build context. Compose требует `POSTGRES_PASSWORD`, передаёт приложению `DATABASE_URL` с внутренним именем `db` и ждёт healthcheck PostgreSQL. Сервер применяет миграции до открытия HTTP-порта. Свежий каталог пуст: GET возвращает `[]` до явной загрузки seed.
 
-Для остановки сервера и базы с сохранением данных:
+`compose.yaml` предназначен для локальной разработки: порты привязаны к `127.0.0.1`, используется локальный пароль из `.env.example`, SSL отключён. Для существующего volume из main нужен прежний пароль `srez_dev`: изменение переменной **не меняет пароль уже созданной роли PostgreSQL**. Для нового окружения можно выбрать другой URL-safe пароль. Не используйте эти настройки в production; там задавайте отдельный секретный DATABASE_URL и TLS. Приложение вне Compose не требует `.env`, читает окружение и не загружает seed.
 
-```powershell
+Данные живут в прежнем named volume `postgres_data`. Сохраняйте прежний каталог/имя Compose-проекта, чтобы использовать существующий volume. Остановка с сохранением данных:
+
+```sh
 docker compose down
 ```
 
-## Запуск Go из GoLand
+Не удаляйте volume и не используйте `down -v`. Новые версии схемы не требуют переинициализации БД.
 
-Для отладки вне контейнера нужен Go 1.27.2 или новее. В PowerShell из корня проекта:
+## Запуск Go / GoLand без контейнера приложения
 
-```powershell
+Нужен Go 1.27.2 или новее. `.env.example` подходит для zsh на Mac:
+
+```sh
+cp .env.example .env  # только если .env ещё нет
 docker compose up -d --wait db
-$env:DATABASE_URL = "postgres://srez:srez_dev@localhost:5432/srez?sslmode=disable"
+docker compose stop app
+set -a
+source .env
+set +a
 go run ./cmd/app
 ```
 
-Для запуска из конфигурации GoLand нужно задать тот же `DATABASE_URL` в **Environment variables**. Сервер требует доступную базу при старте. Если на порту 8080 уже запущен сервис `app`, его можно остановить командой `docker compose stop app`.
+Для GoLand задайте `DATABASE_URL=postgres://srez:srez_dev@localhost:5432/srez?sslmode=disable` в Environment variables (с вашим локальным паролем). При запуске Go на хосте без `HTTP_ADDR` или с пустым значением сервер слушает `127.0.0.1:8080`, доступный только локально. Явный `HTTP_ADDR` используется без изменений; для другого локального порта: `HTTP_ADDR=127.0.0.1:8081 go run ./cmd/app`.
 
-## Ручки пользователей
+В Dockerfile явно задан `HTTP_ADDR=:8080`, чтобы приложение принимало соединения внутри контейнера. Compose публикует этот порт только на `127.0.0.1:8080` хоста.
 
-Все маршруты `/users` используют PostgreSQL. `GET /profile` пока возвращает демонстрационный профиль, так как аутентификация ещё не добавлена.
+## Явный dev seed
+
+Seed — отдельная команда, которая требует `SREZ_DEV_SEED=true`. Сервер её не вызывает, в production она не должна запускаться.
+
+```sh
+# В Compose, после сборки образа app:
+docker compose run --rm --no-deps -e SREZ_DEV_SEED=true --entrypoint /seed app
+
+# Либо Go с локальным DATABASE_URL в окружении:
+SREZ_DEV_SEED=true go run ./cmd/seed
+```
+
+Создаются активные `srez-studio` и `linea`, по опубликованному товару с двумя цветами, упорядоченными изображениями и тремя вариантами. Размер L имеет нулевой остаток. URL демонстрационные. ID генерирует PostgreSQL, они могут отличаться от `1` и `2`.
+
+Seed сначала применяет миграции, затем в одной транзакции под advisory lock вставляет только отсутствующие бренды вместе с каталогом. Повторный или параллельный запуск не создаёт дубликаты. Существующий slug полностью пропускается: seed не меняет чужой бренд, не добавляет ему товары и не восстанавливает вручную изменённые демонстрационные данные. Сущности и публикация проверяются доменом. Рабочий HTTP-каталог не зависит от dev seed или моков.
+
+## Архитектура
+
+- `cmd/app/main.go`: конфигурация, соединение с БД, миграции, сборка зависимостей, HTTP.
+- `internal/handler`: маршруты, JSON/path-параметры, DTO и HTTP-статусы. JSON-контракты каталога сохранены.
+- `internal/usecase/catalog.go`: интерфейсы репозиториев, сценарии Brands/Products, проверка существования и активности бренда перед созданием draft.
+- `internal/storage/brand.go`, `product.go`: параметризованный SQL, восстановление сущностей, фильтрация публичного каталога. InsertDraft повторяет проверку бренда под `FOR SHARE` в транзакции, блокируя параллельное удаление/смену статуса до commit.
+- `internal/entities`: прежние сущности, нормализация и правила публикации, без изменений.
+- `migrations`: встроенные SQL-файлы и runner, без новых зависимостей.
+- `cmd/seed`, `internal/devseed`: отдельная команда и демонстрационные данные.
+
+Подробная карточка загружается четырьмя запросами в read-only `REPEATABLE READ`: товар и активный бренд, цвета, изображения, варианты. Принадлежность определяется FK/ID, изображения сортируются по `position`, варианты — по ID. Проверяется полный `ProductPublication`. Список возвращает краткие карточки без загрузки дочерних сущностей. Ошибки БД превращаются в обобщённые `500`, без SQL-деталей в HTTP-ответе.
+
+## Схема и миграции
+
+`001_users.sql` сохранена без изменений. Даже если она уже выполнялась через `/docker-entrypoint-initdb.d`, повторное `CREATE TABLE IF NOT EXISTS` сохранит таблицу users и данные. В Compose больше нет initdb-монтирования: миграции выполняет бинарник при **каждом** запуске до HTTP, в том числе для уже существующих volumes.
+
+Runner встроен через `go:embed`. Файлы с именами `NNN_name.sql` идут лексикографически (сохраняйте фиксированную ширину номера). `schema_migrations` хранит имя, SHA-256 и время применения. Транзакционная advisory lock сериализует несколько стартующих процессов. Все новые SQL и записи журнала фиксируются одной транзакцией; ошибка откатывает весь новый набор. Применённые версии пропускаются. Изменённая/удалённая применённая миграция и добавленная задним числом версия приводят к отказу старта. Добавляйте новые файлы; не редактируйте применённые. Runner рассчитан на транзакционный DDL; `CREATE INDEX CONCURRENTLY` внутри него не поддерживается. Автоматического downgrade нет.
+
+`002_catalog.sql` добавляет:
+
+| Таблица | Содержимое и ограничения |
+| --- | --- |
+| `brands` | BIGINT identity PK, данные бренда; contacts и appearance разложены на текстовые колонки; CHECK статуса/дат; уникальный непустой slug |
+| `products` | BIGINT identity PK, FK brand_id, цена BIGINT в копейках (>=0), materials TEXT[], CHECK категории/статуса/дат |
+| `product_colors` | BIGINT identity PK, FK product_id, color, уникальный `(product_id, color_key)` |
+| `product_color_images` | FK цвета, URL, позиция 0–9, PK `(product_color_id, position)`, уникальный URL в цвете |
+| `product_variants` | BIGINT identity PK, FK цвета, size, stock BIGINT >=0, sku; уникальный `(product_color_id, size_key)` |
+
+Индексы покрывают FK и публичные списки. Каскадного удаления нет. Пустой slug допустим у нескольких draft-брендов, как разрешает домен. SKU не уникален: такого инварианта у сущности нет. Доменные ограничения длины Unicode, URL и публикации не дублируются целиком в SQL: записи создаются/восстанавливаются через entities.
+
+`color_key` и `size_key` должны всегда вычисляться как `strings.ToLower(strings.TrimSpace(value))`, ровно как уникальность в entities. Это явные ключи для ограничений БД, а не поля домена или DTO. SQL `lower/btrim` зависит от локали и не совпадает с Unicode-правилами Go. Текущий единственный писатель связанных сущностей — seed — вычисляет ключи в Go. Будущие репозитории редактирования обязаны использовать то же правило; при прямом SQL ответственность за правильность ключей лежит на операторе. Ограничьте прямую запись в production. У домена материалы уникальны с учётом регистра; для них дополнительного нечётко совпадающего SQL-ограничения нет.
+
+## HTTP-каталог
+
+| Метод | Путь | Поведение |
+| --- | --- | --- |
+| GET | `/brands` | только active, массив DTO по ID |
+| GET | `/brands/:slug` | active или 404; неверный slug — 400 |
+| GET | `/products` | краткие карточки published только у active-брендов |
+| GET | `/products/:id` | подробная карточка с colors/images/variants; недоступный товар — 404 |
+| POST | `/products` | по умолчанию 403; в локальном режиме создаёт сохранённый draft, 201 |
+| GET | `/health` | `{"status":"ok"}`; проверяет HTTP-процесс |
+
+ID — положительный int64: некорректное значение/переполнение даёт 400. Slug: 3–60 строчных латинских букв, цифр или дефисов. Ошибки: `{"error":"описание"}`. Неактивные бренды, draft и hidden товары не раскрываются публичными GET.
+
+DTO товара: `id`, `brand_id`, `name`, `description`, `price_kopecks`, `category`, `materials` (всегда массив), `status`, `created_at`, `updated_at`. Подробный DTO дополнен `colors`: `id`, `color`, `images` и `variants` (`id`, `size`, `stock`, `sku`). Вариант вложен только в свой цвет. Даты RFC 3339.
+
+DTO бренда: `id`, `name`, `slug`, `description`, `logo_url`, `banner_url`, `contacts` (`email`, `telegram_url`, `website_url`), `appearance` (`accent_color`, `background_color`, `text_color`), `status`, `created_at`, `updated_at`.
+
+### Временный локальный POST
+
+Пока нет JWT и BrandMembership, POST разрешается только при **точном** `SREZ_DEV_CATALOG_WRITE=true`. Значение по умолчанию — false. Это переключатель разработки, не авторизация; не включайте его на публичном сервере. Переданный brand_id выбирает существующий активный бренд и не доказывает права на него.
+
+```sh
+SREZ_DEV_CATALOG_WRITE=true docker compose up -d app
+# Для Go: SREZ_DEV_CATALOG_WRITE=true go run ./cmd/app
+curl -i http://localhost:8080/products \
+  -H 'Content-Type: application/json' \
+  -d '{"brand_id":1,"name":"Футболка","description":"Хлопковая футболка","price_kopecks":250000,"category":"tshirt","materials":["хлопок"]}'
+```
+
+Используйте brand_id из GET /brands. Отсутствующий бренд даёт 404, неактивный — 409, некорректные данные — 400. Ответ содержит настоящий ID БД, статус всегда draft. Draft сохранён, но публичный GET по этому ID вернёт 404. Для отключения: `SREZ_DEV_CATALOG_WRITE=false docker compose up -d app`.
+
+Сохранена строгая обработка JSON: один объект, запрет неизвестных полей/клиентских ID, статуса и дат, лимит тела **64 КиБ** по фактически прочитанным байтам (включая пробелы и chunked), 413 при превышении. Обязательны положительный brand_id и name 2–120 Unicode-символов после trim. Description до 5000 символов, цена — int64 >=0, category пустая или `tshirt/hoodie/pants/outerwear/footwear/accessories/other`, materials до 10 непустых строк без повторений после trim. Неполный draft разрешён доменом, публикация автоматически не выполняется.
+
+## Пользователи: совместимость и ограничения
+
+User usecase/storage и таблица users сохранены. Контракты:
 
 | Метод | Путь | Ответ |
 | --- | --- | --- |
-| GET | `/users` | `200`, массив публичных DTO в порядке ID |
-| GET | `/users/:id` | `200`, публичный DTO: `id`, `username`, `display_name`, `avatar_url` |
-| POST | `/users` | `201`, публичный DTO с ID записи из PostgreSQL |
-| PUT | `/users/:id` | `200`, обновлённый публичный DTO |
-| DELETE | `/users/:id` | `204`, запись удалена, тело ответа пустое |
-| GET | `/profile` | `200`, `id`, `email`, `username`, `display_name`, `avatar_url` |
+| GET | `/users` | 200, публичные DTO по ID |
+| GET | `/users/:id` | 200: id, username, display_name, avatar_url |
+| POST | `/users` | 201, настоящий ID; email/username/display_name в запросе |
+| PUT | `/users/:id` | 200, частичное display_name/avatar_url |
+| DELETE | `/users/:id` | 204, пустое тело |
+| GET | `/profile` | временная фиксированная заглушка с email, не текущий пользователь |
 
-ID должен быть положительным int64. Отсутствующий пользователь даёт `404`, некорректный ID или переполнение — `400`. Ошибки имеют вид `{"error":"описание"}`.
+ID проверяется как положительный int64, отсутствующий пользователь — 404, повторный username — 409. POST запрещает пароль и создаёт профиль с отключённым password_hash `!`. PUT допускает пустой avatar_url для удаления, иначе HTTPS. Настройки JSON пользователей не менялись.
 
-`POST /users` принимает только `email`, `username`, `display_name`:
+**AppSec:** User CRUD всё ещё доступен без аутентификации, включая изменение и удаление произвольного пользователя; это существующее ограничение учебного проекта. `/profile` не идентифицирует посетителя. Не публикуйте текущий сервис в интернете. Следующий этап: JWT, реальный profile, проверки ролей/BrandMembership и прав записи, затем управление каталогом. Production также потребует разделения роли миграций с DDL и роли приложения с минимальными правами. Текущий локальный Compose использует роль владельца БД.
 
-```json
-{"email":"roman@example.com","username":"roman_1","display_name":"Роман"}
-```
-
-Сценарий создания вызывает `entities.NewUser` для проверки email, `username` и `display_name`. В PostgreSQL `username` должен быть уникальным. Повторное создание с тем же именем возвращает `409`. Создаётся запись профиля с маркером отключённого пароля `!`. Аутентификация пока отсутствует, поля `password` и `password_hash` в запросе запрещены. Публичный DTO исключает email и пароль.
-
-`PUT /users/:id` допускает только `display_name` и `avatar_url`, одно или оба:
-
-```json
-{"display_name":"Рома","avatar_url":"https://example.com/avatar.png"}
-```
-
-Пропущенные поля сохраняются. Пустая строка в `avatar_url` удаляет аватар, а непустой URL должен использовать HTTPS. Пустое обновление, неверные поля или неверный JSON дают `400`.
-
-Проверка CRUD в PowerShell при запущенном сервере:
-
-```powershell
-$base = "http://localhost:8080"
-$body = @{ email = "roman@example.com"; username = "roman_1"; display_name = "Роман" } | ConvertTo-Json
-$user = Invoke-RestMethod -Method Post -Uri "$base/users" -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($body))
-$card = "$base/users/$($user.id)"
-Invoke-RestMethod -Method Get -Uri "$base/users"
-Invoke-RestMethod -Method Get -Uri $card
-$update = @{ display_name = "Рома" } | ConvertTo-Json
-Invoke-RestMethod -Method Put -Uri $card -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($update))
-Invoke-RestMethod -Method Delete -Uri $card
-curl.exe -i $card
-```
-
-Последний GET возвращает `404`.
-
-`SPEC.md` относится к исходному учебному примеру каталога проектов. Актуальное ТЗ маркетплейса SREZ ведётся отдельно; `SPEC.md` не является его актуальной спецификацией.
-
-## Бренды, товары и health
-
-| Метод | Путь | Ответ |
-| --- | --- | --- |
-| GET | `/health` | `200`, `{"status":"ok"}` |
-| GET | `/products` | `200`, JSON-массив двух фиксированных опубликованных товаров |
-| GET | `/products/:id` | `200`, подробная карточка товара с ID `1` или `2`, цветами, фото и размерами |
-| POST | `/products` | `201`, пример черновика с условным ID `3` |
-| GET | `/brands` | `200`, JSON-массив двух фиксированных активных брендов |
-| GET | `/brands/:slug` | `200`, бренд `srez-studio` или `linea` |
-
-`GET /products/:id` принимает положительный int64: некорректный ID, ноль,
-отрицательное значение или переполнение дают `400`, неизвестный положительный
-ID — `404`. Slug должен содержать 3–60 строчных латинских букв, цифр или дефисов:
-нарушение формата даёт `400`, корректный отсутствующий slug — `404`.
-Ошибки новых маршрутов имеют вид `{"error":"описание"}`.
-
-Товар в ответе содержит `id`, `brand_id`, `name`, `description`, `price_kopecks`,
-`category`, `materials`, `status`, `created_at`, `updated_at`. `materials` всегда
-возвращается массивом, включая пустой `[]` у черновика. Бренд содержит `id`,
-`name`, `slug`, `description`, `logo_url`, `banner_url`, публичные `contacts`
-(`email`, `telegram_url`, `website_url`), `appearance` (`accent_color`,
-`background_color`, `text_color`), `status`, `created_at`, `updated_at`.
-Даты передаются в RFC 3339. `GET /products` остаётся кратким списком без галерей
-и вариантов. `GET /products/:id` дополнительно возвращает массив `colors`:
-у каждого цвета есть `id`, `color`, `images` (массив HTTPS URL) и `variants`.
-Каждый вариант содержит `id`, `size`, `stock`, `sku` и вложен только в свой цвет.
-В фиксированных карточках по два цвета с разными галереями; чёрный содержит
-размеры M и L, белый — One Size. Нулевой остаток L возвращается как `stock: 0`.
-Карточка использует те же доменные моки, которые проверяются при публикации;
-проверки правил публикации остаются в entities.
-Сущности, membership и данные учётных записей напрямую не сериализуются.
-
-`POST /products` принимает один JSON-объект размером до **64 КиБ (65536 байт)**
-включительно. При превышении возвращается `413` с JSON-ошибкой. Лимит проверяется
-по фактически прочитанным байтам, включая краевые пробелы, в том числе без
-Content-Length. Некорректный запрос в пределах лимита по-прежнему даёт `400`.
-Обязательны положительный `brand_id`
-и `name` длиной 2–120 Unicode-символов после обрезки краевых пробелов.
-Допустимы также:
-
-* `description` — строка до 5000 символов;
-* `price_kopecks` — целое int64, не меньше нуля, по умолчанию `0`;
-* `category` — пустая строка либо `tshirt`, `hoodie`, `pants`, `outerwear`,
-  `footwear`, `accessories`, `other`;
-* `materials` — до 10 непустых строк без повторений после обрезки краевых пробелов.
-
-Черновик может не содержать описания, категории и материалов. Обработчик вызывает
-`entities.NewProduct`; нормализация и ограничения полей определяются доменом.
-Некорректный JSON, типы полей, доменные значения, неизвестные поля и дополнительный
-JSON после первого объекта дают `400`. ID, статус и даты нельзя задать запросом.
-Настройки декодирования существующих User endpoints не изменены.
-
-Пример создания:
-
-```powershell
-$productBody = @{
-    brand_id = 1
-    name = "Футболка"
-    description = "Базовая хлопковая футболка"
-    price_kopecks = 250000
-    category = "tshirt"
-    materials = @("хлопок")
-} | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8080/products -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($productBody))
-
-curl.exe -i http://localhost:8080/health
-curl.exe -i http://localhost:8080/products
-curl.exe -i http://localhost:8080/products/1
-curl.exe -i http://localhost:8080/brands
-curl.exe -i http://localhost:8080/brands/srez-studio
-curl.exe -i http://localhost:8080/products/3
-```
-
-Последний запрос вернёт `404`, в том числе после успешного POST. Каждый POST
-возвращает тот же условный ID `3` только в DTO ответа: новая сущность остаётся
-с ID `0`, ничего не сохраняется. Статус всегда `draft`; дата создания берётся
-из текущего времени. Списки и отдельные GET-объекты после POST не меняются.
-Их данные и даты фиксированы, URL изображений и контакты демонстрационные.
-
-Здесь нет БД, in-memory storage, авторизации и проверки прав. POST проверяет
-только локальные правила товара: существование и активность бренда по `brand_id`
-пока не проверяются, поэтому любой положительный ID бренда допустим. Это останется
-за будущим usecase вместе с сохранением и межобъектными операциями.
-`/health` проверяет доступность HTTP-процесса, не подключение к внешним сервисам.
-
-## Другой порт
-
-```powershell
-$env:HTTP_ADDR = ":8081"
-go run ./cmd/app
-```
-
-Адрес проверки: `http://localhost:8081/projects`. Чтобы вернуть адрес по умолчанию после остановки сервера:
-
-```powershell
-Remove-Item Env:HTTP_ADDR
-```
+GET /projects остаётся исходным учебным примером. `SPEC.md` описывает его, а не актуальную спецификацию маркетплейса.
 
 ## Проверки
 
-```powershell
+```sh
 go test ./...
 go vet ./...
-go build -o ./bin/srez.exe ./cmd/app
+git diff --check
+docker compose config
 ```
 
-Автотесты используют тестовое хранилище и проверяют HTTP-ответы и правила доменных сущностей. Полный цикл через PostgreSQL можно проверить командами выше.
+Интеграционные тесты включаются явно. Без TEST_DATABASE_URL они отмечаются skipped. Используйте **отдельную тестовую БД**, не production:
 
-## Путь запроса
+```sh
+TEST_DATABASE_URL='postgres://srez:srez_dev@localhost:15432/srez?sslmode=disable' \
+  go test ./internal/storage -run Postgres -v -count=1
+```
 
-`main` читает конфигурацию и собирает хранилище, сценарии и HTTP-обработчик. При `GET /users/:id` обработчик разбирает ID, `usecase` запрашивает пользователя у хранилища, а `storage` выполняет `GetContext` с параметром `$1`. Обработчик формирует JSON и выбирает HTTP-статус. Для POST сценарий проверяет данные через `entities.NewUser`, а PostgreSQL атомарно проверяет уникальность `username` при вставке.
+Каждый тест создаёт уникальную схему `catalog_test_*`, задаёт search_path для всех соединений и удаляет только собственную тестовую схему при завершении. Проверяются чистая/существующая users-схема, сохранение данных, повторный/параллельный запуск миграций, rollback и checksum, seed, FK/unique/CHECK, публичность, draft, связи/порядок, повторная проверка бренда и User CRUD. HTTP unit-тесты сохраняют контракты, проверяют ошибки, лимит тела, переключатель записи и сокрытие SQL-ошибок.

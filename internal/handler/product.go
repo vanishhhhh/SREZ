@@ -3,20 +3,21 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"srez/internal/entities"
+	"srez/internal/usecase"
 )
 
-func GetProducts(c *gin.Context) {
-	products, err := mockProducts()
+func (h *Handler) GetProducts(c *gin.Context) {
+	products, err := h.products.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось подготовить тестовые товары"})
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось загрузить товары"})
 		return
 	}
 	response := make([]productResponse, 0, len(products))
@@ -26,29 +27,29 @@ func GetProducts(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func GetProduct(c *gin.Context) {
+func (h *Handler) GetProduct(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "id должен быть положительным целым числом int64"})
 		return
 	}
-	products, err := mockProductCatalog()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось подготовить тестовые товары"})
+	detail, err := h.products.Get(c.Request.Context(), id)
+	if errors.Is(err, usecase.ErrProductNotFound) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "товар не найден"})
 		return
 	}
-	for _, product := range products {
-		if product.product.ID() == id {
-			c.JSON(http.StatusOK, productDetailDTO(product.product, product.publication))
-			return
-		}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось загрузить товар"})
+		return
 	}
-	c.JSON(http.StatusNotFound, errorResponse{Error: "товар не найден"})
+	c.JSON(http.StatusOK, productDetailDTO(detail.Product, detail.Publication))
 }
 
-// CreateProduct validates a transient draft and returns a response example.
-// The example ID belongs only to the DTO; nothing is saved or published.
-func CreateProduct(c *gin.Context) {
+func (h *Handler) CreateProduct(c *gin.Context) {
+	if !h.devCatalogWrite {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "создание товаров доступно только в локальном режиме разработки"})
+		return
+	}
 	body, ok := readJSONBody(c)
 	if !ok {
 		return
@@ -64,13 +65,23 @@ func CreateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "нужен ровно один JSON-объект"})
 		return
 	}
-	product, err := entities.NewProduct(request.BrandID, request.Name, request.Description,
-		request.PriceKopecks, entities.ProductCategory(request.Category), request.Materials, time.Now().UTC())
-	if err != nil {
+	product, err := h.products.Create(c.Request.Context(), request.BrandID, request.Name, request.Description,
+		request.PriceKopecks, entities.ProductCategory(request.Category), request.Materials)
+	if errors.Is(err, usecase.ErrBrandNotFound) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "бренд не найден"})
+		return
+	}
+	if errors.Is(err, usecase.ErrBrandInactive) {
+		c.JSON(http.StatusConflict, errorResponse{Error: "бренд не активен"})
+		return
+	}
+	if errors.Is(err, entities.ErrInvalidValue) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "некорректные данные товара"})
 		return
 	}
-	response := productDTO(*product)
-	response.ID = 3 // Fixed response example, absent from GET fixtures.
-	c.JSON(http.StatusCreated, response)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось сохранить товар"})
+		return
+	}
+	c.JSON(http.StatusCreated, productDTO(*product))
 }
