@@ -1,9 +1,45 @@
+# macOS and editor metadata
+.DS_Store
+._*
 .idea/
-bin/
-*.exe
-*.log
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
 
+# Local environment and Compose overrides
 .env
 .env.*
 !.env.example
-.DS_Store
+.envrc
+/compose.override.yaml
+/compose.override.yml
+/compose.local.yaml
+/compose.local.yml
+/.secrets/
+
+# Binaries and generated output
+/bin/
+/build/
+/dist/
+/srez
+/app
+/server
+/seed
+*.exe
+*.test
+*.log
+/coverage/
+/coverage*.out
+/coverage*.html
+/test-results/
+/tmp/
+/temp/
+
+# Local database artifacts; SQL migrations remain tracked
+/pgdata/
+/postgres_data/
+/backups/
+*.dump
+*.sql.gz
