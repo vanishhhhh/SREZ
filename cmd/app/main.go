@@ -10,6 +10,7 @@ import (
 
 	"srez/internal/config"
 	"srez/internal/handler"
+	"srez/internal/security"
 	"srez/internal/storage"
 	"srez/internal/usecase"
 	"srez/migrations"
@@ -17,6 +18,14 @@ import (
 
 func main() {
 	cfg := config.Must()
+	authCfg, err := config.LoadAuth()
+	if err != nil {
+		log.Fatal(err)
+	}
+	tokens, err := security.NewTokens(authCfg.JWTKey, authCfg.CSRFKey, authCfg.Issuer, authCfg.Audience)
+	if err != nil {
+		log.Fatal("invalid security keys")
+	}
 	if cfg.DatabaseURL == "" {
 		log.Fatal("задайте DATABASE_URL или запустите проект через docker compose up --build")
 	}
@@ -36,11 +45,13 @@ func main() {
 	brands := usecase.NewBrands(brandsRepo)
 	products := usecase.NewProducts(storage.NewProducts(db), brandsRepo)
 	users := usecase.NewUsers(storage.NewUsers(db))
-	h := handler.New(users, brands, products, cfg.DevCatalogWrite)
-
-	if cfg.DevCatalogWrite {
-		log.Print("ВНИМАНИЕ: включён локальный POST /products без авторизации")
+	h := handler.New(users, brands, products)
+	h.SetManagement(usecase.NewManagement(storage.NewManagement(db)))
+	auth := usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(authCfg.HashWorkers), tokens)
+	if err := h.EnableAuth(auth, tokens, authCfg); err != nil {
+		log.Fatal("invalid trusted proxies")
 	}
+
 	log.Printf("HTTP-сервер запускается на %s", cfg.Addr)
 	if err := h.Run(cfg.Addr); err != nil {
 		log.Fatalf("не удалось запустить HTTP-сервер: %v", err)

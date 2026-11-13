@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -42,21 +41,15 @@ func publicUserDTO(user entities.User) publicUserResponse {
 	return publicUserResponse{ID: user.ID(), Username: user.Username(), DisplayName: user.DisplayName(), AvatarURL: user.AvatarURL()}
 }
 
-// Placeholder for domain validation in examples, never for authentication.
-const mockUserPasswordHash = "mock-password-hash-not-for-authentication"
-
-func mockUser() (*entities.User, error) {
-	now := time.Date(2026, time.October, 28, 12, 0, 0, 0, time.UTC)
-	return entities.RestoreUser(entities.UserState{
-		ID: 1, Email: "demo@example.com", Username: "demo_user", DisplayName: "Тестовый пользователь",
-		PasswordHash: mockUserPasswordHash, AvatarURL: "https://example.com/users/1/avatar.png", CreatedAt: now, UpdatedAt: now,
-	})
-}
-
 // Strict decoding is local to User endpoints; Gin settings are unchanged.
 func decodeUserRequest(c *gin.Context, target any) bool {
 	body, ok := readJSONBody(c)
 	if !ok {
+		return false
+	}
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "нужен JSON-объект"})
 		return false
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
@@ -158,16 +151,6 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	default:
 		c.Status(http.StatusNoContent)
 	}
-}
-
-// GetProfile is a fixed own-profile example without authorization or sessions.
-func GetProfile(c *gin.Context) {
-	user, err := mockUser()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось подготовить тестового пользователя"})
-		return
-	}
-	c.JSON(http.StatusOK, profileResponse{publicUserResponse: publicUserDTO(*user), Email: user.Email()})
 }
 
 func userID(c *gin.Context) (int64, bool) {

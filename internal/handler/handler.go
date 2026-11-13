@@ -9,32 +9,27 @@ import (
 )
 
 type Handler struct {
-	router          *gin.Engine
-	users           *usecase.Users
-	brands          *usecase.Brands
-	products        *usecase.Products
-	devCatalogWrite bool
+	router     *gin.Engine
+	users      *usecase.Users
+	brands     *usecase.Brands
+	products   *usecase.Products
+	management *usecase.Management
 }
 
 func NewWithUsers(users *usecase.Users) *Handler {
-	return New(users, nil, nil, false)
+	return New(users, nil, nil)
 }
 
-func New(users *usecase.Users, brands *usecase.Brands, products *usecase.Products, devCatalogWrite bool) *Handler {
-	router := gin.Default()
-	h := &Handler{router: router, users: users, brands: brands, products: products, devCatalogWrite: devCatalogWrite}
+func New(users *usecase.Users, brands *usecase.Brands, products *usecase.Products) *Handler {
+	router := gin.New()
+	router.Use(gin.LoggerWithFormatter(safeAccessLog), safeRecovery(gin.DefaultErrorWriter))
+	_ = router.SetTrustedProxies(nil)
+	h := &Handler{router: router, users: users, brands: brands, products: products}
 	router.GET("/projects", GetProjects)
-	router.GET("/users", h.ListUsers)
-	router.GET("/users/:id", h.GetUser)
-	router.POST("/users", h.CreateUser)
-	router.PUT("/users/:id", h.UpdateUser)
-	router.DELETE("/users/:id", h.DeleteUser)
-	router.GET("/profile", GetProfile)
 	router.GET("/health", GetHealth)
 	if brands != nil && products != nil {
 		router.GET("/products", h.GetProducts)
 		router.GET("/products/:id", h.GetProduct)
-		router.POST("/products", h.CreateProduct)
 		router.GET("/brands", h.GetBrands)
 		router.GET("/brands/:slug", h.GetBrand)
 	}

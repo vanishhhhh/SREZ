@@ -27,7 +27,7 @@ func newCatalogRepository() *catalogRepository {
 }
 func newTestCatalogHandler() *Handler {
 	r := newCatalogRepository()
-	return New(usecase.NewUsers(mockUserRepository{}), usecase.NewBrands(r), usecase.NewProducts(r, r), true)
+	return fixtureCatalogHandler(r)
 }
 func (r *catalogRepository) ListActive(context.Context) ([]entities.Brand, error) {
 	if r.err != nil {
@@ -106,4 +106,10 @@ func (r *catalogRepository) InsertDraft(_ context.Context, p entities.Product) (
 	}
 	r.products = append(r.products, mockProductEntry{product: *saved})
 	return saved, nil
+}
+
+func fixtureCatalogHandler(r *catalogRepository) *Handler {
+	h := New(usecase.NewUsers(mockUserRepository{}), usecase.NewBrands(r), usecase.NewProducts(r, r))
+	h.router.POST("/products", h.fixtureCreateProduct)
+	return h
 }

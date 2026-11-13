@@ -31,14 +31,3 @@ func TestHTTPAddr(t *testing.T) {
 		})
 	}
 }
-
-func TestDevCatalogWriteIsExplicit(t *testing.T) {
-	for _, value := range []string{"", "false", "TRUE", "1", " true ", "true"} {
-		t.Run(value, func(t *testing.T) {
-			t.Setenv("SREZ_DEV_CATALOG_WRITE", value)
-			if got := Must().DevCatalogWrite; got != (value == "true") {
-				t.Fatalf("flag %q enabled=%v", value, got)
-			}
-		})
-	}
-}

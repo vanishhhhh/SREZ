@@ -3,7 +3,15 @@ services:
     build: .
     environment:
       DATABASE_URL: "postgres://srez:${POSTGRES_PASSWORD:?copy .env.example to .env}@db:5432/srez?sslmode=disable"
-      SREZ_DEV_CATALOG_WRITE: "${SREZ_DEV_CATALOG_WRITE:-false}"
+      SREZ_JWT_KEY: "${SREZ_JWT_KEY:?generate independent JWT key in .env}"
+      SREZ_CSRF_KEY: "${SREZ_CSRF_KEY:?generate independent CSRF key in .env}"
+      SREZ_JWT_ISSUER: "${SREZ_JWT_ISSUER:-srez}"
+      SREZ_JWT_AUDIENCE: "${SREZ_JWT_AUDIENCE:-srez-api}"
+      SREZ_PUBLIC_ORIGIN: "${SREZ_PUBLIC_ORIGIN:-http://127.0.0.1:8080}"
+      SREZ_AUTH_LOCAL_HTTP: "${SREZ_AUTH_LOCAL_HTTP:-false}"
+      SREZ_AUTH_ATTEMPTS: "${SREZ_AUTH_ATTEMPTS:-10}"
+      SREZ_AUTH_HASH_WORKERS: "${SREZ_AUTH_HASH_WORKERS:-2}"
+      SREZ_TRUSTED_PROXIES: "${SREZ_TRUSTED_PROXIES:-}"
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

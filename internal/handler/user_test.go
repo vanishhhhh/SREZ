@@ -13,7 +13,14 @@ import (
 )
 
 func newTestHandler() *Handler {
-	return NewWithUsers(usecase.NewUsers(mockUserRepository{}))
+	h := NewWithUsers(usecase.NewUsers(mockUserRepository{}))
+	h.router.GET("/users", h.ListUsers)
+	h.router.GET("/users/:id", h.GetUser)
+	h.router.POST("/users", h.CreateUser)
+	h.router.PUT("/users/:id", h.UpdateUser)
+	h.router.DELETE("/users/:id", h.DeleteUser)
+	h.router.GET("/profile", GetProfile)
+	return h
 }
 
 type mockUserRepository struct{}

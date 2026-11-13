@@ -3,9 +3,8 @@ package config
 import "os"
 
 type Config struct {
-	Addr            string
-	DatabaseURL     string
-	DevCatalogWrite bool
+	Addr        string
+	DatabaseURL string
 }
 
 func Must() Config {
@@ -14,5 +13,5 @@ func Must() Config {
 		addr = "127.0.0.1:8080"
 	}
 
-	return Config{Addr: addr, DatabaseURL: os.Getenv("DATABASE_URL"), DevCatalogWrite: os.Getenv("SREZ_DEV_CATALOG_WRITE") == "true"}
+	return Config{Addr: addr, DatabaseURL: os.Getenv("DATABASE_URL")}
 }

@@ -73,52 +73,9 @@ func (p *Products) GetPublic(ctx context.Context, id int64) (*usecase.ProductDet
 	if err != nil {
 		return nil, err
 	}
-	var colors []struct {
-		ID    int64  `db:"id"`
-		Color string `db:"color"`
-	}
-	if err = tx.SelectContext(ctx, &colors, `SELECT id,color FROM product_colors WHERE product_id = $1 ORDER BY id`, id); err != nil {
+	publication, err := loadPublication(ctx, tx, id, false)
+	if err != nil {
 		return nil, err
-	}
-	var images []struct {
-		ColorID int64  `db:"product_color_id"`
-		URL     string `db:"url"`
-	}
-	if err = tx.SelectContext(ctx, &images, `SELECT i.product_color_id,i.url FROM product_color_images i JOIN product_colors c ON c.id=i.product_color_id WHERE c.product_id=$1 ORDER BY i.product_color_id,i.position`, id); err != nil {
-		return nil, err
-	}
-	var variants []struct {
-		ID      int64  `db:"id"`
-		ColorID int64  `db:"product_color_id"`
-		Size    string `db:"size"`
-		Stock   int    `db:"stock"`
-		SKU     string `db:"sku"`
-	}
-	if err = tx.SelectContext(ctx, &variants, `SELECT v.id,v.product_color_id,v.size,v.stock,v.sku FROM product_variants v JOIN product_colors c ON c.id=v.product_color_id WHERE c.product_id=$1 ORDER BY v.id`, id); err != nil {
-		return nil, err
-	}
-	publication := entities.ProductPublication{Colors: make([]entities.ProductColor, 0, len(colors)), Variants: make([]entities.ProductVariant, 0, len(variants))}
-	imageMap := map[int64][]string{}
-	for _, image := range images {
-		imageMap[image.ColorID] = append(imageMap[image.ColorID], image.URL)
-	}
-	for _, c := range colors {
-		urls := imageMap[c.ID]
-		if urls == nil {
-			urls = []string{}
-		}
-		color, err := entities.RestoreProductColor(entities.ProductColorState{ID: c.ID, ProductID: id, Color: c.Color, Images: urls})
-		if err != nil {
-			return nil, err
-		}
-		publication.Colors = append(publication.Colors, *color)
-	}
-	for _, v := range variants {
-		variant, err := entities.RestoreProductVariant(entities.ProductVariantState{ID: v.ID, ProductColorID: v.ColorID, Size: v.Size, Stock: v.Stock, SKU: v.SKU})
-		if err != nil {
-			return nil, err
-		}
-		publication.Variants = append(publication.Variants, *variant)
 	}
 	if err = product.ValidatePublication(publication); err != nil {
 		return nil, err
@@ -168,4 +125,62 @@ func (p *Products) InsertDraft(ctx context.Context, product entities.Product) (*
 		return nil, err
 	}
 	return saved, nil
+}
+
+func loadPublication(ctx context.Context, tx *sqlx.Tx, id int64, lock bool) (entities.ProductPublication, error) {
+	colorLock, imageLock, variantLock := "", "", ""
+	if lock {
+		colorLock = " FOR UPDATE"
+		imageLock = " FOR UPDATE OF i"
+		variantLock = " FOR UPDATE OF v"
+	}
+	var err error
+	var colors []struct {
+		ID    int64  `db:"id"`
+		Color string `db:"color"`
+	}
+	if err = tx.SelectContext(ctx, &colors, `SELECT id,color FROM product_colors WHERE product_id = $1 ORDER BY id`+colorLock, id); err != nil {
+		return entities.ProductPublication{}, err
+	}
+	var images []struct {
+		ColorID int64  `db:"product_color_id"`
+		URL     string `db:"url"`
+	}
+	if err = tx.SelectContext(ctx, &images, `SELECT i.product_color_id,i.url FROM product_color_images i JOIN product_colors c ON c.id=i.product_color_id WHERE c.product_id=$1 ORDER BY i.product_color_id,i.position`+imageLock, id); err != nil {
+		return entities.ProductPublication{}, err
+	}
+	var variants []struct {
+		ID      int64  `db:"id"`
+		ColorID int64  `db:"product_color_id"`
+		Size    string `db:"size"`
+		Stock   int    `db:"stock"`
+		SKU     string `db:"sku"`
+	}
+	if err = tx.SelectContext(ctx, &variants, `SELECT v.id,v.product_color_id,v.size,v.stock,v.sku FROM product_variants v JOIN product_colors c ON c.id=v.product_color_id WHERE c.product_id=$1 ORDER BY v.id`+variantLock, id); err != nil {
+		return entities.ProductPublication{}, err
+	}
+	publication := entities.ProductPublication{Colors: make([]entities.ProductColor, 0, len(colors)), Variants: make([]entities.ProductVariant, 0, len(variants))}
+	imageMap := map[int64][]string{}
+	for _, image := range images {
+		imageMap[image.ColorID] = append(imageMap[image.ColorID], image.URL)
+	}
+	for _, c := range colors {
+		urls := imageMap[c.ID]
+		if urls == nil {
+			urls = []string{}
+		}
+		color, err := entities.RestoreProductColor(entities.ProductColorState{ID: c.ID, ProductID: id, Color: c.Color, Images: urls})
+		if err != nil {
+			return entities.ProductPublication{}, err
+		}
+		publication.Colors = append(publication.Colors, *color)
+	}
+	for _, v := range variants {
+		variant, err := entities.RestoreProductVariant(entities.ProductVariantState{ID: v.ID, ProductColorID: v.ColorID, Size: v.Size, Stock: v.Stock, SKU: v.SKU})
+		if err != nil {
+			return entities.ProductPublication{}, err
+		}
+		publication.Variants = append(publication.Variants, *variant)
+	}
+	return publication, nil
 }

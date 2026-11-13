@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"srez/internal/entities"
-	"srez/internal/usecase"
 	"strings"
 	"testing"
 	"time"
@@ -289,10 +288,10 @@ func TestCreateProductBodyLimit(t *testing.T) {
 	}
 }
 
-func TestCatalogWriteDisabledByDefault(t *testing.T) {
-	h := newTestCatalogHandler()
-	h.devCatalogWrite = false
-	assertCatalogError(t, catalogRequest(t, h, "POST", "/products", `{"brand_id":1,"name":"Товар"}`), 403)
+func TestCatalogWriteRequiresJWT(t *testing.T) {
+	t.Setenv("SREZ_DEV_CATALOG_WRITE", "true")
+	h, _ := secureHandler(t)
+	assertCatalogError(t, catalogRequest(t, h, "POST", "/products", `{"brand_id":1,"name":"Товар"}`), 401)
 }
 
 func TestCatalogBrandChecks(t *testing.T) {
@@ -306,7 +305,7 @@ func TestCatalogBrandChecks(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.brands[0] = *b
-	h = New(usecase.NewUsers(mockUserRepository{}), usecase.NewBrands(r), usecase.NewProducts(r, r), true)
+	h = fixtureCatalogHandler(r)
 	assertCatalogError(t, catalogRequest(t, h, "POST", "/products", `{"brand_id":1,"name":"Товар"}`), 409)
 	assertCatalogError(t, catalogRequest(t, h, "GET", "/brands/srez-studio", ""), 404)
 	assertCatalogError(t, catalogRequest(t, h, "GET", "/products/1", ""), 404)
@@ -315,7 +314,7 @@ func TestCatalogBrandChecks(t *testing.T) {
 func TestCatalogStorageErrorsArePrivate(t *testing.T) {
 	r := newCatalogRepository()
 	r.err = errors.New("secret SQL connection details")
-	h := New(usecase.NewUsers(mockUserRepository{}), usecase.NewBrands(r), usecase.NewProducts(r, r), true)
+	h := fixtureCatalogHandler(r)
 	for _, tt := range []struct{ method, path, body string }{
 		{"GET", "/brands", ""}, {"GET", "/brands/srez-studio", ""}, {"GET", "/products", ""}, {"GET", "/products/1", ""}, {"POST", "/products", `{"brand_id":1,"name":"Товар"}`},
 	} {
