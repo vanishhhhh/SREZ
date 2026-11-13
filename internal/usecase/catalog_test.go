@@ -31,6 +31,9 @@ type productRepoStub struct {
 }
 
 func (r *productRepoStub) ListPublic(context.Context) ([]entities.Product, error) { return nil, r.err }
+func (r *productRepoStub) BrowsePublic(_ context.Context, q ProductQuery) (*ProductPage, error) {
+	return &ProductPage{Items: []ProductCard{}, Page: q.Page, Limit: q.Limit}, r.err
+}
 func (r *productRepoStub) GetPublic(context.Context, int64) (*ProductDetail, error) {
 	return nil, r.err
 }
