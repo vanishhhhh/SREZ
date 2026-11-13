@@ -27,6 +27,7 @@ type ProductDetail struct {
 
 type ProductRepository interface {
 	ListPublic(context.Context) ([]entities.Product, error)
+	BrowsePublic(context.Context, ProductQuery) (*ProductPage, error)
 	GetPublic(context.Context, int64) (*ProductDetail, error)
 	// InsertDraft rechecks and locks the active brand while inserting.
 	InsertDraft(context.Context, entities.Product) (*entities.Product, error)

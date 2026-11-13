@@ -15,6 +15,10 @@ import (
 
 const firstProductJSON = `{"id":1,"brand_id":1,"name":"Футболка База","description":"Хлопковая футболка свободного кроя.","price_kopecks":250000,"category":"tshirt","materials":["хлопок"],"status":"published","created_at":"2026-10-28T12:00:00Z","updated_at":"2026-10-28T12:00:00Z"}`
 const secondProductJSON = `{"id":2,"brand_id":2,"name":"Худи Город","description":"Худи с капюшоном для прохладной погоды.","price_kopecks":650000,"category":"hoodie","materials":["хлопок","полиэстер"],"status":"published","created_at":"2026-10-28T12:00:00Z","updated_at":"2026-10-28T12:00:00Z"}`
+
+var firstProductCardJSON = strings.TrimSuffix(firstProductJSON, "}") + `,"preview_image_url":"https://example.com/products/1/black.png","brand_name":"Срез Студия","brand_slug":"srez-studio","is_available":true,"available_colors":["Чёрный","Белый"],"available_sizes":["M","One Size"],"colors":[{"id":11,"color":"Чёрный","preview_image_url":"https://example.com/products/1/black.png","is_available":true,"available_sizes":["M"]},{"id":12,"color":"Белый","preview_image_url":"https://example.com/products/1/white.png","is_available":true,"available_sizes":["One Size"]}]}`
+var secondProductCardJSON = strings.TrimSuffix(secondProductJSON, "}") + `,"preview_image_url":"https://example.com/products/2/black.png","brand_name":"Линия","brand_slug":"linea","is_available":true,"available_colors":["Чёрный","Белый"],"available_sizes":["M","One Size"],"colors":[{"id":21,"color":"Чёрный","preview_image_url":"https://example.com/products/2/black.png","is_available":true,"available_sizes":["M"]},{"id":22,"color":"Белый","preview_image_url":"https://example.com/products/2/white.png","is_available":true,"available_sizes":["One Size"]}]}`
+
 const firstProductColorsJSON = `[{"id":11,"color":"Чёрный","images":["https://example.com/products/1/black.png","https://example.com/products/1/black-back.png"],"variants":[{"id":101,"size":"M","stock":10,"sku":"SREZ-1-BLK-M"},{"id":102,"size":"L","stock":0,"sku":"SREZ-1-BLK-L"}]},{"id":12,"color":"Белый","images":["https://example.com/products/1/white.png"],"variants":[{"id":103,"size":"One Size","stock":4,"sku":"SREZ-1-WHT-OS"}]}]`
 const secondProductColorsJSON = `[{"id":21,"color":"Чёрный","images":["https://example.com/products/2/black.png","https://example.com/products/2/black-back.png"],"variants":[{"id":201,"size":"M","stock":10,"sku":"SREZ-2-BLK-M"},{"id":202,"size":"L","stock":0,"sku":"SREZ-2-BLK-L"}]},{"id":22,"color":"Белый","images":["https://example.com/products/2/white.png"],"variants":[{"id":203,"size":"One Size","stock":4,"sku":"SREZ-2-WHT-OS"}]}]`
 const firstBrandJSON = `{"id":1,"name":"Срез Студия","slug":"srez-studio","description":"Базовая одежда на каждый день.","logo_url":"https://example.com/brands/srez-studio/logo.png","banner_url":"https://example.com/brands/srez-studio/banner.png","contacts":{"email":"studio@example.com","telegram_url":"https://t.me/srez_example","website_url":"https://example.com/studio"},"appearance":{"accent_color":"#D14532","background_color":"#FFFFFF","text_color":"#222222"},"status":"active","created_at":"2026-10-28T12:00:00Z","updated_at":"2026-10-28T12:00:00Z"}`
@@ -68,7 +72,7 @@ func TestCatalogGETEndpoints(t *testing.T) {
 	h := newTestCatalogHandler()
 	for _, tt := range []struct{ path, want string }{
 		{"/health", `{"status":"ok"}`},
-		{"/products", "[" + firstProductJSON + "," + secondProductJSON + "]"},
+		{"/products", "[" + firstProductCardJSON + "," + secondProductCardJSON + "]"},
 		{"/products/1", strings.TrimSuffix(firstProductJSON, "}") + `,"colors":` + firstProductColorsJSON + `}`},
 		{"/products/2", strings.TrimSuffix(secondProductJSON, "}") + `,"colors":` + secondProductColorsJSON + `}`},
 		{"/brands", "[" + firstBrandJSON + "," + secondBrandJSON + "]"},
