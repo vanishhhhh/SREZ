@@ -7,7 +7,7 @@ SREZ использует Go, Gin, PostgreSQL и sqlx. Входные HTTP-да�
 | Путь | Ответственность |
 | --- | --- |
 | `cmd/app/main.go` | конфигурация, соединение, миграции, сборка зависимостей, HTTP |
-| `internal/config` | HTTP_ADDR, DATABASE_URL и явный флаг локальной записи |
+| `internal/config` | HTTP_ADDR, DATABASE_URL; auth keys, origin, cookie mode и лимиты |
 | `internal/handler` | маршруты, разбор запроса, DTO, HTTP-статусы |
 | `internal/usecase` | сценарии, интерфейсы репозиториев, межсущностные проверки |
 | `internal/entities` | инварианты, нормализация, создание/восстановление, переходы статусов |
@@ -33,7 +33,7 @@ SREZ использует Go, Gin, PostgreSQL и sqlx. Входные HTTP-да�
 
 Базовый DTO товара содержит id, brand_id, name, description, price_kopecks, category, materials, status, created_at и updated_at. Materials всегда возвращается массивом, включая пустой. Подробная карточка добавляет colors: у цвета есть id, color, images (массив HTTPS URL) и variants. У варианта — id, size, stock и sku; вариант вложен только в свой цвет. Нулевой stock сохраняется в JSON.
 
-Карточка списка расширяет базовый DTO полями preview_image_url, brand_name, brand_slug, is_available, available_colors, available_sizes и colors. Последнее поле содержит компактные элементы: id, color, preview_image_url, is_available, available_sizes. Доступными считаются варианты со stock > 0. Общий список размеров — объединение доступных размеров, а размеры внутри цвета сохраняют их связь с цветом. Опубликованные товары с нулевыми остатками остаются в каталоге с is_available=false. Пустые массивы сериализуются как [], отсутствующая обложка — как пустая строка. Состав базового DTO, GET /products/:id и POST /products не меняется.
+Карточка списка расширяет базовый DTO полями preview_image_url, brand_name, brand_slug, is_available, available_colors, available_sizes и colors. Последнее поле содержит компактные элементы: id, color, preview_image_url, is_available, available_sizes. Доступными считаются варианты со stock > 0. Общий список размеров — объединение доступных размеров, а размеры внутри цвета сохраняют их связь с цветом. Опубликованные товары с нулевыми остатками остаются в каталоге с is_available=false. Пустые массивы сериализуются как [], отсутствующая обложка — как пустая строка. JSON-состав базового DTO и GET /products/:id сохранён; POST /products сохраняет поля JSON, но требует Bearer JWT и актуальные RBAC-права.
 
 GET /products по-прежнему возвращает JSON-массив. По умолчанию page=1, limit=20, sort=id_asc; limit ограничен 100. Метаданные находятся в заголовках X-Total-Count, X-Page, X-Limit и X-Total-Pages. Это не вводит объект-обёртку вместо существующего массива. Правила фильтрации и примеры — в [контракте каталога](catalog-api.md).
 
