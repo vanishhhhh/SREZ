@@ -19,13 +19,23 @@ SREZ использует Go, Gin, PostgreSQL и sqlx. Входные HTTP-да�
 
 ## Чтение каталога и создание draft
 
-Публичные запросы брендов фильтруют status=active. Запросы товаров выбирают только published у active-брендов. Подробная карточка загружается четырьмя запросами в read-only REPEATABLE READ: товар с брендом, цвета, изображения, варианты. Снимок согласован; изображения отсортированы по position, варианты связаны с цветом через ID. После восстановления проверяется полный ProductPublication. Краткий список не загружает дочерние сущности.
+Публичные запросы брендов фильтруют status=active. Запросы товаров выбирают только published у active-брендов. Подробная карточка загружается четырьмя запросами в read-only REPEATABLE READ: товар с брендом, цвета, изображения, варианты. Снимок согласован; изображения отсортированы по position, варианты связаны с цветом через ID. После восстановления проверяется полный ProductPublication.
+
+Для GET /products используется отдельная модель чтения ProductCard и метод BrowsePublic. ProductQuery валидируется в usecase; handler разбирает query-параметры и возвращает DTO. Существующие ListPublic и Products.List сохранены для прежних внутренних вызовов.
+
+Страница каталога загружается максимум тремя SQL-запросами в одной read-only REPEATABLE READ-транзакции: количество подходящих товаров, страница товаров вместе с именами/slug брендов, затем цвета и варианты всей страницы с первыми изображениями. Для пустой страницы третий запрос не выполняется. Число запросов не зависит от количества карточек; галереи полностью не загружаются. Изображение цвета выбирается по position, обложка товара — первое существующее изображение в порядке ID цвета.
+
+Фильтры category, brand_id и границы цены применяются до LIMIT/OFFSET. Size и color используют EXISTS, поэтому совпадения вариантов не дублируют товары и не искажают общее количество. Если заданы оба фильтра, размер должен быть в наличии именно у выбранного цвета. Значения передаются параметрами SQL; ORDER BY выбирается из закрытого списка. Каждая сортировка содержит ID как однозначный дополнительный ключ.
 
 Создание draft через HTTP использует Management usecase: валидный Product из NewProduct сохраняется только после проверки актуального активного membership под блокировкой бренда. Draft разрешён для draft/active брендов, suspended запрещён. Старый dev-флаг удалён. Подробности — в разделе BrandMembership & RBAC Architecture.
 
 ## DTO каталога
 
-Краткая карточка товара содержит id, brand_id, name, description, price_kopecks, category, materials, status, created_at и updated_at. Materials всегда возвращается массивом, включая пустой. Подробная карточка добавляет colors: у цвета есть id, color, images (массив HTTPS URL) и variants. У варианта — id, size, stock и sku; вариант вложен только в свой цвет. Нулевой stock сохраняется в JSON.
+Базовый DTO товара содержит id, brand_id, name, description, price_kopecks, category, materials, status, created_at и updated_at. Materials всегда возвращается массивом, включая пустой. Подробная карточка добавляет colors: у цвета есть id, color, images (массив HTTPS URL) и variants. У варианта — id, size, stock и sku; вариант вложен только в свой цвет. Нулевой stock сохраняется в JSON.
+
+Карточка списка расширяет базовый DTO полями preview_image_url, brand_name, brand_slug, is_available, available_colors, available_sizes и colors. Последнее поле содержит компактные элементы: id, color, preview_image_url, is_available, available_sizes. Доступными считаются варианты со stock > 0. Общий список размеров — объединение доступных размеров, а размеры внутри цвета сохраняют их связь с цветом. Опубликованные товары с нулевыми остатками остаются в каталоге с is_available=false. Пустые массивы сериализуются как [], отсутствующая обложка — как пустая строка. Состав базового DTO, GET /products/:id и POST /products не меняется.
+
+GET /products по-прежнему возвращает JSON-массив. По умолчанию page=1, limit=20, sort=id_asc; limit ограничен 100. Метаданные находятся в заголовках X-Total-Count, X-Page, X-Limit и X-Total-Pages. Это не вводит объект-обёртку вместо существующего массива. Правила фильтрации и примеры — в [контракте каталога](catalog-api.md).
 
 DTO бренда содержит id, name, slug, description, logo_url, banner_url, contacts (email, telegram_url, website_url), appearance (accent_color, background_color, text_color), status, created_at и updated_at. Даты передаются в RFC 3339. Данные учётных записей и membership напрямую не сериализуются.
 

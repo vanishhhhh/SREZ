@@ -77,6 +77,38 @@ func (r *catalogRepository) ListPublic(ctx context.Context) ([]entities.Product,
 	}
 	return result, nil
 }
+
+// Existing HTTP fixtures represent a fixed two-item page. SQL selection is
+// tested against PostgreSQL; parameter forwarding uses a separate spy.
+func (r *catalogRepository) BrowsePublic(ctx context.Context, q usecase.ProductQuery) (*usecase.ProductPage, error) {
+	products, err := r.ListPublic(ctx)
+	if err != nil {
+		return nil, err
+	}
+	page := &usecase.ProductPage{Items: []usecase.ProductCard{}, Total: int64(len(products)), Page: q.Page, Limit: q.Limit}
+	for _, product := range products {
+		brand, _ := r.Get(ctx, product.BrandID())
+		detail, _ := r.GetPublic(ctx, product.ID())
+		card := usecase.ProductCard{Product: product, BrandName: brand.Name(), BrandSlug: brand.Slug(), Colors: []usecase.ProductCardColor{}}
+		for _, color := range detail.Publication.Colors {
+			item := usecase.ProductCardColor{ID: color.ID(), Color: color.Color(), Variants: []usecase.ProductCardVariant{}}
+			if images := color.Images(); len(images) > 0 {
+				item.PreviewImageURL = images[0]
+				if card.PreviewImageURL == "" {
+					card.PreviewImageURL = images[0]
+				}
+			}
+			for _, variant := range detail.Publication.Variants {
+				if variant.ProductColorID() == color.ID() {
+					item.Variants = append(item.Variants, usecase.ProductCardVariant{ID: variant.ID(), Size: variant.Size(), Stock: int64(variant.Stock())})
+				}
+			}
+			card.Colors = append(card.Colors, item)
+		}
+		page.Items = append(page.Items, card)
+	}
+	return page, nil
+}
 func (r *catalogRepository) GetPublic(ctx context.Context, id int64) (*usecase.ProductDetail, error) {
 	products, err := r.ListPublic(ctx)
 	if err != nil {
