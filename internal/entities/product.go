@@ -137,6 +137,9 @@ func (p *Product) ChangeName(v string, now time.Time) error {
 	s.Name = v
 	return p.change(s, now)
 }
+
+// Touch records an atomic change to this product's related data.
+func (p *Product) Touch(now time.Time) error { return p.change(p.State(), now) }
 func (p *Product) ChangeDescription(v string, now time.Time) error {
 	s := p.state
 	s.Description = v
