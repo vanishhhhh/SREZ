@@ -28,6 +28,7 @@ type ManagedBrand struct {
 	Role  entities.BrandRole
 }
 type ManagementTx interface {
+	ProductVariantTx
 	Membership(context.Context, int64) (*entities.BrandMembership, error)
 	SaveMembership(context.Context, entities.BrandMembership) error
 	FindUser(context.Context, string) (int64, error)

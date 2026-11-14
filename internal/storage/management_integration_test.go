@@ -284,7 +284,9 @@ func TestPostgresManagementConcurrency(t *testing.T) {
 		done <- e
 	}()
 	<-started
-	if _, e = tx.ExecContext(ctx, `UPDATE brand_memberships SET status='revoked',updated_at=now() WHERE brand_id=$1 AND user_id=$2`, b.ID(), editor); e != nil {
+	// PostgreSQL may run in a VM whose clock lags Go on the host. Preserve the
+	// membership's existing chronology in this direct-SQL test fixture.
+	if _, e = tx.ExecContext(ctx, `UPDATE brand_memberships SET status='revoked',updated_at=GREATEST(updated_at,now()) WHERE brand_id=$1 AND user_id=$2`, b.ID(), editor); e != nil {
 		t.Fatal(e)
 	}
 	if e = tx.Commit(); e != nil {

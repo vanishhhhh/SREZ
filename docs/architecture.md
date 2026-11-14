@@ -49,12 +49,12 @@ DTO бренда содержит id, name, slug, description, logo_url, banner_
 | `brands` | данные бренда; contacts/appearance разложены на текстовые колонки; статусы draft/active/suspended; уникальный непустой slug |
 | `products` | FK brand_id, цена >=0, materials TEXT[], категории и статусы draft/published/hidden |
 | `product_colors` | FK product_id, color, уникальный `(product_id, color_key)` |
-| `product_color_images` | FK цвета, URL, позиция 0–9; уникальные URL и позиция внутри цвета |
+| `product_color_images` | стабильный уникальный BIGINT identity id (005), FK цвета, URL, позиция 0–9; уникальные URL и DEFERRABLE PK(color_id, position) |
 | `product_variants` | FK цвета, size, stock BIGINT >=0, sku; уникальный `(product_color_id, size_key)` |
 
 CHECK также защищают порядок updated_at/created_at. Индексы покрывают FK и публичные выборки. Каскадного удаления нет. У нескольких draft-брендов может отсутствовать slug, как разрешает домен. Уникальность SKU не введена: такого доменного инварианта нет.
 
-color_key и size_key вычисляются писателем как `strings.ToLower(strings.TrimSpace(value))`, точно как ключи уникальности в entities. Они отделены от отображаемого значения, не входят в DTO и избегают расхождений с локалью PostgreSQL. Текущий писатель связанных сущностей — seed. Будущие репозитории редактирования должны применять то же правило. При прямой записи SQL оператор отвечает за корректные ключи; такую запись следует ограничивать правами БД.
+color_key и size_key вычисляются писателем как `strings.ToLower(strings.TrimSpace(value))`, точно как ключи уникальности в entities. Они отделены от отображаемого значения, не входят в DTO и избегают расхождений с локалью PostgreSQL. Seed и PVM storage используют одинаковое правило. При прямой записи SQL оператор отвечает за корректные ключи; такую запись следует ограничивать правами БД.
 
 В SQL не дублируются все проверки Unicode-длины, URL, материалов и публикации: их выполняют entities. Materials сравниваются после trim с учётом регистра. Правила публикации и межсущностные гарантии описаны в [документации домена](../internal/entities/README.md).
 
@@ -158,7 +158,7 @@ Same-Origin Policy ограничивает чтение ресурсов бра
 | Refresh replay | история хешей, rotation, отзыв после 5 секунд | задержанный легитимный replay тоже может отозвать сессию |
 | Brute force | Argon2id, локальный IP limiter, bounded hashing | нет распределённого/аккаунтного limiter; production требует усиления |
 | User enumeration | одинаковая ошибка login, dummy hash; /users отключён | register конфликт раскрывает занятость; timing не абсолютно одинаков |
-| IDOR/BOLA | профиль только по sub; legacy write отключены | права проверяются по БД; управление вариантами — следующий этап |
+| IDOR/BOLA | профиль только по sub; legacy write отключены; PVM проверяет полную иерархию под brand-lock | права проверяются по актуальной БД, а не ролям из JWT |
 | Race conditions | row lock, unique current refresh, DB unique аккаунтов | frontend обязан координировать вкладки; возможна потеря ответа |
 | Session fixation | новая random session/refresh при login | несколько активных сессий допустимы |
 | Небезопасные cookie | production __Host-, Secure, HttpOnly, Strict; явный локальный режим | защита требует корректного HTTPS/proxy |
@@ -170,7 +170,7 @@ Same-Origin Policy ограничивает чтение ресурсов бра
 
 JWT упрощает отдельный API и stateless access-проверку, но не даёт немедленного logout и не подтверждает права на бренд. Серверные сессии без JWT остаются допустимой более простой альтернативой. Refresh непрозрачный, потому что все нужные состояние/отзыв уже в БД; SHA-256 подходит только для случайных высокоэнтропийных токенов, не для паролей. HttpOnly не мешает JS отправлять запросы. LocalStorage/sessionStorage сохраняют украденный JS-токен дольше и не используются; память также не устраняет XSS.
 
-Implemented означает покрытие существующими автоматическими проверками, но не независимую сертификацию безопасности. Planned: React, reverse proxy, CSP, email verification/recovery, распределённый limiter, cleanup/retention, управление сессиями и Product Variant Management. Неподтверждённый email регистрации пока нельзя использовать как доказательство владения для восстановления доступа. Публичный запуск до отдельного AppSec-ревью не рекомендуется.
+Implemented означает покрытие существующими автоматическими проверками, но не независимую сертификацию безопасности. Planned: React, reverse proxy, CSP, email verification/recovery, распределённый limiter, cleanup/retention и управление сессиями. PVM реализован в существующей RBAC-границе, подробности ниже. Неподтверждённый email регистрации пока нельзя использовать как доказательство владения для восстановления доступа. Публичный запуск до отдельного AppSec-ревью не рекомендуется.
 
 Источники решений: [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), [JWT library API](https://pkg.go.dev/github.com/golang-jwt/jwt/v5).
 
@@ -245,7 +245,19 @@ Strict JSON и лимит 64 КиБ сохраняются. POST создани�
 
 ### Следующий этап
 
-**Planned:** полный CRUD цветов, изображений и вариантов с теми же locks/проверкой ProductPublication; frontend для координации токенов и приглашений; отдельный аудит Auth+RBAC. **Limitations:** новый draft без дочернего агрегата пока нельзя опубликовать. Нет ownership transfer, email-рассылки или глобального admin. Существующие ограничения JWT/logout, refresh grace и локального auth limiter остаются в разделе Authentication.
+**Implemented:** полный CRUD цветов, изображений и вариантов с теми же locks/проверкой ProductPublication; новый draft можно полностью подготовить через HTTP. **Planned:** frontend для координации токенов и приглашений; отдельный аудит Auth+RBAC+PVM. Нет ownership transfer, email-рассылки или глобального admin. Существующие ограничения JWT/logout, refresh grace и локального auth limiter остаются в разделе Authentication.
+
+## Product Variant Management
+
+PVM расширяет существующий Management usecase, ManagementTx и PostgreSQL managementTx. Отдельного permission engine или параллельного storage-слоя нет. Handler регистрирует 13 маршрутов через существующую цепочку Bearer → managementReady и использует отдельные DTO. ProductVariantTx объединяет интерфейсы дочернего CRUD; его реализует та же транзакция WithinBrand.
+
+Management.withProduct находит фактический бренд, под его блокировкой повторно проверяет membership, блокирует товар и загружает полный ProductPublication прежним загрузчиком. Он проверяет принадлежность цвета товару и варианта/изображения цвету. После записи у published-товара заново читает агрегат и вызывает ValidatePublication, затем Touch/SaveProduct. При нарушении инвариантов весь SQL откатывается. Порядок блокировок и семантика 401/403/404/409 сохранены. Нулевой stock допустим. Добавление пустого цвета к published требует предварительного явного hide/unpublish.
+
+005_product_image_ids.sql добавляет фотографиям постоянный ID, сохраняя URL, позиции и связи. Старый составной PK сохраняется по составу, но становится DEFERRABLE INITIALLY IMMEDIATE. Storage временно откладывает проверку позиций при добавлении/перемещении, сохраняет полный порядок через unnest WITH ORDINALITY и возвращает IMMEDIATE. Изображения не пересоздаются, ID не меняются. URL-unique, FK и диапазон 0–9 остаются. Удаление цвета явно удаляет его детей в той же транзакции, без каскадной миграции. Миграции 001–004 не изменены.
+
+Публичные DTO сохраняют URL-массивы, а management-DTO изображений содержат id/product_color_id/url/position. Публичная загрузка каталога по-прежнему ограничена тремя SQL-запросами, детальная карточка использует прежний snapshot. CRUD обновляет updated_at родительского товара только после успешной проверки.
+
+Контракты, схема взаимодействия, ошибки, тесты и Windows PowerShell: [product-variant-management.md](product-variant-management.md).
 
 
 ### Финальные меры аудита и отложенный deployment hardening

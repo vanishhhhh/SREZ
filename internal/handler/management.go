@@ -44,6 +44,7 @@ func (h *Handler) managementRoutes(x *authHTTP) {
 	add("POST", "/products/:id/publish", h.publishProduct)
 	add("POST", "/products/:id/hide", h.hideProduct)
 	add("POST", "/products/:id/unpublish", h.unpublishProduct)
+	h.variantRoutes(add)
 }
 func actor(c *gin.Context) int64 { return c.MustGet("auth_user_id").(int64) }
 func resourceID(c *gin.Context) (int64, bool) {
