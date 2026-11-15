@@ -14,6 +14,8 @@ type Handler struct {
 	brands     *usecase.Brands
 	products   *usecase.Products
 	management *usecase.Management
+	shopping   *usecase.Shopping
+	orders     *usecase.Orders
 }
 
 func NewWithUsers(users *usecase.Users) *Handler {
