@@ -265,3 +265,35 @@ Management.withProduct находит фактический бренд, под 
 Recovery и access logging не печатают сырые URL/query, заголовки, cookies, тела или значения panic. Recovery пишет только фиксированный тип события и stack frames без аргументов/исходных строк; клиент получает обобщённую ошибку, broken connection не вызывает повторной записи ответа. Это проверяется синтетическими секретами в debug/release, включая EPIPE/ECONNRESET.
 
 R2 остаётся deployment risk, не production-ready: необходимо настроить HTTP ReadHeader/Read/Idle deadlines, DB pool budget, context/lock/statement timeouts, proxy connection/body limits и распределённый limiter. Locking protocol RBAC сохранён. Возможный deny-only precheck membership до ожидания lock не должен заменять авторитетную проверку внутри транзакции. Нагрузочное тестирование и production proxy/TLS вне текущего этапа.
+
+## Buyer wishlist and authenticated cart
+
+Shopping usecase owns buyer rules and ShoppingRepository/CartTx interfaces;
+entities validates quantities (1–100) and checked integer money arithmetic.
+Handler owns DTOs, strict input, Bearer subject and HTTP errors. Storage owns SQL,
+row mapping and transactions. Startup wires Shopping before EnableAuth registers
+routes. No existing catalog/auth/RBAC DTO or permissions change.
+
+006 adds favorites(user_id,product_id PK/FKs) and cart_items with user FK,
+nullable variant FK, quantity CHECK and UNIQUE(user_id,product_variant_id).
+Wishlist loads saved IDs and public ProductCard projections in one REPEATABLE
+READ snapshot using shared batch children loading (at most three queries).
+Private products return a null projection. Cart reads one SQL snapshot and
+redacts non-public catalog fields in SQL; usecase computes availability/totals.
+Only public lines with enough stock contribute. Cart never reserves stock.
+
+Cart writes acquire a transaction advisory lock on the negative buyer ID,
+then catalog brand -> product -> children locks before changing cart rows.
+Validation and mutation share that transaction, including resulting totals.
+Concurrent increments are serialized and protected by a database unique key.
+All cart queries/mutations include user_id. Favorite add locks brand/product
+for an authoritative publication check and uses ON CONFLICT DO NOTHING.
+
+PVM deletion now explicitly detaches affected cart variant FKs to NULL before
+variant/color deletion inside the existing management transaction. Tombstone
+lines remain removable; failed publication validation restores their references.
+No cart row lock is taken before a catalog lock, so management's brand/children
+-> cart detachment cannot form a lock cycle with buyer operations. Restrictive
+FKs catch unsupported raw deletion. Existing management locks are preserved.
+See [buyer API, examples and tests](buyer-shopping.md), including the missing
+team specification v0.3 source limitation.

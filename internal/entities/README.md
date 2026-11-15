@@ -136,3 +136,9 @@ Usecase обязан передать **полные актуальные кол
 Порядок изображений и уникальность URL обеспечиваются usecase вместе со storage;
 одна ProductImage не может доказать уникальность/полноту всей коллекции.
 Описание и примеры: [Product Variant Management](../../docs/product-variant-management.md).
+
+## Buyer money and quantity
+
+ValidateCartQuantity enforces 1–100. LineTotal/AddMoney use checked int64 kopecks;
+overflow returns ErrMoneyOverflow. Stock/publication/ownership checks require the
+Shopping usecase and a consistent storage transaction, not these local helpers.

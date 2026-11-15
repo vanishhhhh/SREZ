@@ -47,6 +47,7 @@ func main() {
 	users := usecase.NewUsers(storage.NewUsers(db))
 	h := handler.New(users, brands, products)
 	h.SetManagement(usecase.NewManagement(storage.NewManagement(db)))
+	h.SetShopping(usecase.NewShopping(storage.NewShopping(db)))
 	auth := usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(authCfg.HashWorkers), tokens)
 	if err := h.EnableAuth(auth, tokens, authCfg); err != nil {
 		log.Fatal("invalid trusted proxies")

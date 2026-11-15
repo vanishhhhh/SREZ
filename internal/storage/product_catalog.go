@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
 	"srez/internal/usecase"
@@ -71,11 +72,7 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
 	if err = tx.GetContext(ctx, &page.Total, "SELECT count(*)"+selection, args...); err != nil {
 		return nil, err
 	}
-	var rows []struct {
-		productRow
-		BrandName string `db:"brand_name"`
-		BrandSlug string `db:"brand_slug"`
-	}
+	var rows []productCardRow
 	args = append(args, q.Limit, (q.Page-1)*int64(q.Limit))
 	statement := "SELECT " + productColumns + ", b.name AS brand_name, b.slug AS brand_slug" + selection +
 		" ORDER BY " + productSortSQL[q.Sort] + fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
@@ -95,6 +92,24 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
 			Product: *product, BrandName: row.BrandName, BrandSlug: row.BrandSlug, Colors: []usecase.ProductCardColor{},
 		})
 	}
+	if err = loadCardChildren(ctx, tx, page.Items, ids, positions); err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return page, nil
+}
+
+type productCardRow struct {
+	productRow
+	BrandName string `db:"brand_name"`
+	BrandSlug string `db:"brand_slug"`
+}
+
+func loadCardChildren(ctx context.Context, tx *sqlx.Tx, cards []usecase.ProductCard, ids []int64, positions map[int64]int) error {
+	var err error
 	if len(ids) > 0 {
 		var children []struct {
 			ProductID       int64          `db:"product_id"`
@@ -112,11 +127,11 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
  LEFT JOIN product_variants v ON v.product_color_id = c.id
  WHERE c.product_id = ANY($1) ORDER BY c.product_id, c.id, v.id`, pq.Array(ids))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		colorPositions := map[int64]int{}
 		for _, child := range children {
-			card := &page.Items[positions[child.ProductID]]
+			card := &cards[positions[child.ProductID]]
 			colorIndex, exists := colorPositions[child.ColorID]
 			if !exists {
 				colorIndex = len(card.Colors)
@@ -136,8 +151,5 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
 			}
 		}
 	}
-	if err = tx.Commit(); err != nil {
-		return nil, err
-	}
-	return page, nil
+	return nil
 }

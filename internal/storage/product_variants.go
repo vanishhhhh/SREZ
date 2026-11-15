@@ -57,6 +57,11 @@ func (t *managementTx) DeleteColor(ctx context.Context, productID, colorID int64
 	if err != nil {
 		return err
 	}
+	// Retain buyer lines as unavailable tombstones, in the same transaction.
+	if _, err = t.tx.ExecContext(ctx, `UPDATE cart_items SET product_variant_id=NULL
+ WHERE product_variant_id IN (SELECT id FROM product_variants WHERE product_color_id=$1)`, id); err != nil {
+		return err
+	}
 	// Explicit child deletion keeps the existing no-cascade FK policy. The
 	// enclosing transaction restores all children if publication validation fails.
 	if _, err = t.tx.ExecContext(ctx, `DELETE FROM product_variants WHERE product_color_id=$1`, id); err != nil {
@@ -91,6 +96,11 @@ func (t *managementTx) SaveVariant(ctx context.Context, v entities.ProductVarian
 		strings.ToLower(strings.TrimSpace(v.Size())), v.Stock(), v.SKU(), t.brandID))
 }
 func (t *managementTx) DeleteVariant(ctx context.Context, colorID, variantID int64) error {
+	if _, err := t.tx.ExecContext(ctx, `UPDATE cart_items ci SET product_variant_id=NULL
+ WHERE ci.product_variant_id=$1 AND EXISTS(SELECT 1 FROM product_variants v JOIN product_colors c ON c.id=v.product_color_id
+ JOIN products p ON p.id=c.product_id WHERE v.id=$1 AND c.id=$2 AND p.brand_id=$3)`, variantID, colorID, t.brandID); err != nil {
+		return err
+	}
 	return changedRow(t.tx.ExecContext(ctx, `DELETE FROM product_variants v WHERE v.id=$1 AND v.product_color_id=$2
  AND EXISTS(SELECT 1 FROM product_colors c JOIN products p ON p.id=c.product_id WHERE c.id=v.product_color_id AND p.brand_id=$3)`, variantID, colorID, t.brandID))
 }
