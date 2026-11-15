@@ -31,6 +31,8 @@ func (h *Handler) shoppingRoutes(x *authHTTP) {
 func shoppingHTTPError(c *gin.Context, err error) {
 	status, message := 500, "shopping operation failed"
 	switch {
+	case errors.Is(err, usecase.ErrEmptyCart):
+		status, message = 409, "cart is empty"
 	case errors.Is(err, usecase.ErrResourceHidden):
 		status, message = 404, "resource not found"
 	case errors.Is(err, entities.ErrInvalidValue):

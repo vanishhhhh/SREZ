@@ -142,3 +142,10 @@ Usecase обязан передать **полные актуальные кол
 ValidateCartQuantity enforces 1–100. LineTotal/AddMoney use checked int64 kopecks;
 overflow returns ErrMoneyOverflow. Stock/publication/ownership checks require the
 Shopping usecase and a consistent storage transaction, not these local helpers.
+
+Order is an immutable snapshot with private state: buyer, unpaid status, creation
+time and copied lines (historical brand/product/variant IDs, product name, color,
+size, quantity and unit price). NewOrder computes the checked total; RestoreOrder
+rejects invalid snapshots or mismatched totals. State/Lines return copies and no
+setters exist. Catalog availability, buyer ownership and atomic stock decrement
+are coordinated by Orders usecase with CheckoutTx, not by the snapshot entity.

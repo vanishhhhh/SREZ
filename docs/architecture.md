@@ -297,3 +297,37 @@ No cart row lock is taken before a catalog lock, so management's brand/children
 FKs catch unsupported raw deletion. Existing management locks are preserved.
 See [buyer API, examples and tests](buyer-shopping.md), including the missing
 team specification v0.3 source limitation.
+
+## Transactional checkout and buyer order history
+
+Orders usecase coordinates CheckoutTx/OrderRepository; immutable entities.Order
+validates snapshots and checked totals. Order handlers only parse strict `{}`,
+map DTOs/errors and derive the buyer from the existing Bearer middleware.
+Orders storage reuses the Shopping WithinCart transaction/advisory lock.
+
+Checkout discovers targets inside the transaction, locks all brands ascending,
+then products, colors, images and variants in the existing hierarchy, before any
+cart row mutation. All supported management writers lock a single brand first;
+multi-brand buyers sort all brand locks to prevent cycles. Buyer cart writes and
+checkout share the same per-user advisory lock, so same-cart checkout cannot
+purchase twice or race an add. The authoritative owned cart, publication/brand
+status, current prices and stock are re-read after locks, not trusted from the
+preliminary target query or earlier HTTP cart response.
+
+Usecase rejects an empty or partly unavailable/insufficient cart and builds a
+single unpaid Order across brands. Storage inserts its header/snapshots,
+conditionally decrements stock (stock >= quantity, with buyer-scoped cart match),
+and deletes only purchased buyer lines within that transaction. Any failure
+restores all writes. Competing buyers serialize on catalog locks; stock cannot
+be negative. Successful immediate retries encounter an empty cart (409); there
+is no response replay/idempotency key. Newly added cart items form a new checkout.
+
+007 adds orders (user FK/status/total/time) and order_items (order FK, historical
+brand/product/variant IDs, product name/color/size/quantity/price/subtotal).
+Catalog IDs deliberately have no live FK: history survives catalog removal,
+unpublishing and edits. Order entities copy state and expose no mutation API.
+History reads use buyer-scoped SQL for headers and all lines in two batch queries
+in one read-only REPEATABLE READ snapshot. List order is newest ID first, currently
+unpaginated. Every private route returns no-store. No guest merge, payment,
+fulfillment, partial cancellation or delivery is implemented; open questions and
+source limitations are recorded in [buyer-shopping.md](buyer-shopping.md).

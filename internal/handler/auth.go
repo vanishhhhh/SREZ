@@ -42,6 +42,7 @@ func (h *Handler) EnableAuth(a *usecase.Auth, t *security.Tokens, cfg config.Aut
 	h.router.PATCH("/profile", x.bearer, h.patchProfile)
 	h.managementRoutes(x)
 	h.shoppingRoutes(x)
+	h.orderRoutes(x)
 	return nil
 }
 func (x *authHTTP) source(c *gin.Context) {
