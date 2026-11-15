@@ -266,68 +266,87 @@ Recovery и access logging не печатают сырые URL/query, заго�
 
 R2 остаётся deployment risk, не production-ready: необходимо настроить HTTP ReadHeader/Read/Idle deadlines, DB pool budget, context/lock/statement timeouts, proxy connection/body limits и распределённый limiter. Locking protocol RBAC сохранён. Возможный deny-only precheck membership до ожидания lock не должен заменять авторитетную проверку внутри транзакции. Нагрузочное тестирование и production proxy/TLS вне текущего этапа.
 
-## Buyer wishlist and authenticated cart
+## Избранное и авторизованная корзина покупателя
 
-Shopping usecase owns buyer rules and ShoppingRepository/CartTx interfaces;
-entities validates quantities (1–100) and checked integer money arithmetic.
-Handler owns DTOs, strict input, Bearer subject and HTTP errors. Storage owns SQL,
-row mapping and transactions. Startup wires Shopping before EnableAuth registers
-routes. No existing catalog/auth/RBAC DTO or permissions change.
+Сценарий `Shopping` определяет правила покупателя и интерфейсы
+`ShoppingRepository` и `CartTx`. Пакет `entities` проверяет количество (1–100)
+и выполняет целочисленные денежные расчёты с защитой от переполнения.
+`handler` отвечает за DTO, строгий разбор ввода, ID покупателя из Bearer JWT
+и HTTP-ошибки; `storage` — за SQL, преобразование строк и транзакции.
+При запуске `Shopping` подключается до регистрации маршрутов в `EnableAuth`.
+Существующие DTO и права каталога, авторизации и RBAC сохранены.
 
-006 adds favorites(user_id,product_id PK/FKs) and cart_items with user FK,
-nullable variant FK, quantity CHECK and UNIQUE(user_id,product_variant_id).
-Wishlist loads saved IDs and public ProductCard projections in one REPEATABLE
-READ snapshot using shared batch children loading (at most three queries).
-Private products return a null projection. Cart reads one SQL snapshot and
-redacts non-public catalog fields in SQL; usecase computes availability/totals.
-Only public lines with enough stock contribute. Cart never reserves stock.
+Миграция 006 добавляет `favorites` с составным первичным ключом
+`(user_id, product_id)` и внешними ключами, а также `cart_items` с внешним ключом
+пользователя, допускающей NULL ссылкой на вариант, CHECK количества
+и `UNIQUE(user_id, product_variant_id)`. Избранное загружает сохранённые ID
+и публичные карточки `ProductCard` в одном снимке REPEATABLE READ с общей пакетной
+загрузкой дочерних данных — не более трёх запросов. Для приватных товаров
+карточка равна null. Корзина читается в снимке одного SQL-запроса; непубличные
+поля скрываются на уровне SQL, а `usecase` рассчитывает доступность и суммы.
+В итог входят только публичные позиции с достаточным остатком.
+Корзина никогда не резервирует остатки.
 
-Cart writes acquire a transaction advisory lock on the negative buyer ID,
-then catalog brand -> product -> children locks before changing cart rows.
-Validation and mutation share that transaction, including resulting totals.
-Concurrent increments are serialized and protected by a database unique key.
-All cart queries/mutations include user_id. Favorite add locks brand/product
-for an authoritative publication check and uses ON CONFLICT DO NOTHING.
+Изменения корзины получают транзакционную advisory-блокировку по отрицательному
+ID покупателя, затем блокировки каталога в порядке бренд → товар → дочерние
+данные до изменения строк корзины. Проверки и запись выполняются в одной
+транзакции, включая расчёт итоговых сумм. Конкурентные приращения сериализуются
+и дополнительно защищены уникальным ключом БД. Все запросы и изменения корзины
+содержат `user_id`. Добавление в избранное блокирует бренд и товар для проверки
+актуального статуса публикации и использует `ON CONFLICT DO NOTHING`.
 
-PVM deletion now explicitly detaches affected cart variant FKs to NULL before
-variant/color deletion inside the existing management transaction. Tombstone
-lines remain removable; failed publication validation restores their references.
-No cart row lock is taken before a catalog lock, so management's brand/children
--> cart detachment cannot form a lock cycle with buyer operations. Restrictive
-FKs catch unsupported raw deletion. Existing management locks are preserved.
-See [buyer API, examples and tests](buyer-shopping.md), including the missing
-team specification v0.3 source limitation.
+При удалении варианта или цвета PVM явно обнуляет затронутые ссылки корзины
+на варианты до их удаления в существующей транзакции управления каталогом.
+Недоступные строки корзины остаются удаляемыми; ошибка проверки публикации
+восстанавливает ссылки. Строки корзины не блокируются раньше каталога,
+поэтому порядок бренд и дочерние данные → обнуление ссылок корзины не создаёт
+цикла блокировок с операциями покупателя. Ограничивающие внешние ключи
+предотвращают неподдерживаемое прямое удаление. Существующие блокировки
+управления каталогом сохранены. Контракты, примеры и тесты приведены
+в [документации покупателя](buyer-shopping.md), включая ограничение из-за
+отсутствующей командной спецификации v0.3.
 
-## Transactional checkout and buyer order history
+## Транзакционное оформление заказа и история покупателя
 
-Orders usecase coordinates CheckoutTx/OrderRepository; immutable entities.Order
-validates snapshots and checked totals. Order handlers only parse strict `{}`,
-map DTOs/errors and derive the buyer from the existing Bearer middleware.
-Orders storage reuses the Shopping WithinCart transaction/advisory lock.
+Сценарий `Orders` координирует `CheckoutTx` и `OrderRepository`;
+неизменяемая сущность `entities.Order` проверяет снимки и итоговые суммы
+с защитой от переполнения. Обработчики заказов разбирают строгое тело `{}`,
+формируют DTO и ошибки, получают покупателя из существующего обработчика
+Bearer JWT. Хранилище заказов переиспользует транзакцию `WithinCart`
+и advisory-блокировку сценария `Shopping`.
 
-Checkout discovers targets inside the transaction, locks all brands ascending,
-then products, colors, images and variants in the existing hierarchy, before any
-cart row mutation. All supported management writers lock a single brand first;
-multi-brand buyers sort all brand locks to prevent cycles. Buyer cart writes and
-checkout share the same per-user advisory lock, so same-cart checkout cannot
-purchase twice or race an add. The authoritative owned cart, publication/brand
-status, current prices and stock are re-read after locks, not trusted from the
-preliminary target query or earlier HTTP cart response.
+Внутри транзакции оформление определяет нужные ресурсы, блокирует все бренды
+по возрастанию ID, затем товары, цвета, изображения и варианты в существующей
+иерархии до изменения строк корзины. Все поддерживаемые операции управления
+каталогом сначала блокируют один бренд; оформление с товарами разных брендов
+сортирует все блокировки брендов, исключая циклы. Запись корзины и оформление
+используют общую advisory-блокировку пользователя, поэтому одна корзина
+не может быть куплена дважды или изменена добавлением одновременно с покупкой.
+Фактическая собственная корзина, статусы публикации и брендов, актуальные цены
+и остатки перечитываются после получения блокировок; предварительный запрос
+ресурсов и предыдущий HTTP-ответ корзины не служат источником этих данных.
 
-Usecase rejects an empty or partly unavailable/insufficient cart and builds a
-single unpaid Order across brands. Storage inserts its header/snapshots,
-conditionally decrements stock (stock >= quantity, with buyer-scoped cart match),
-and deletes only purchased buyer lines within that transaction. Any failure
-restores all writes. Competing buyers serialize on catalog locks; stock cannot
-be negative. Successful immediate retries encounter an empty cart (409); there
-is no response replay/idempotency key. Newly added cart items form a new checkout.
+`usecase` отклоняет пустую корзину, недоступные позиции или недостаточный
+остаток и создаёт один неоплаченный `Order` с товарами разных брендов.
+`storage` вставляет заказ и снимки, условно списывает остатки
+(`stock >= quantity` с проверкой принадлежности позиции корзины покупателю)
+и удаляет только купленные строки покупателя в этой транзакции.
+Любая ошибка откатывает все записи. Конкурирующие покупатели сериализуются
+блокировками каталога; остаток не может стать отрицательным.
+Немедленный повтор успешного оформления получает ошибку пустой корзины (409);
+повторной выдачи прежнего ответа и ключа идемпотентности нет.
+Новые добавленные позиции оформляются новым заказом.
 
-007 adds orders (user FK/status/total/time) and order_items (order FK, historical
-brand/product/variant IDs, product name/color/size/quantity/price/subtotal).
-Catalog IDs deliberately have no live FK: history survives catalog removal,
-unpublishing and edits. Order entities copy state and expose no mutation API.
-History reads use buyer-scoped SQL for headers and all lines in two batch queries
-in one read-only REPEATABLE READ snapshot. List order is newest ID first, currently
-unpaginated. Every private route returns no-store. No guest merge, payment,
-fulfillment, partial cancellation or delivery is implemented; open questions and
-source limitations are recorded in [buyer-shopping.md](buyer-shopping.md).
+Миграция 007 добавляет `orders` (внешний ключ пользователя, статус, итог и время)
+и `order_items` (внешний ключ заказа, исторические ID бренда, товара и варианта,
+название товара, цвет, размер, количество, цену и сумму позиции).
+ID каталога намеренно не имеют внешних ключей на текущие записи: история
+сохраняется после удаления, снятия с публикации и редактирования каталога.
+Сущности заказа копируют состояние и не предоставляют API изменения.
+История читается SQL-запросами с ограничением по покупателю: заказы и все позиции
+загружаются двумя пакетными запросами в одном снимке REPEATABLE READ только
+для чтения. Список отсортирован по убыванию ID и пока не имеет пагинации.
+Каждый приватный маршрут возвращает `Cache-Control: no-store`.
+Объединение гостевых корзин, оплата, обработка заказов брендами, частичная отмена
+и доставка не реализованы; открытые вопросы и ограничения исходных материалов
+зафиксированы в [buyer-shopping.md](buyer-shopping.md).
