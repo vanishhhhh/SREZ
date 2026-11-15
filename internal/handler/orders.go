@@ -22,6 +22,7 @@ func (h *Handler) orderRoutes(x *authHTTP) {
 	add("POST", "/orders", h.checkout)
 	add("GET", "/orders", h.ordersList)
 	add("GET", "/orders/:id", h.order)
+	add("POST", "/orders/:id/cancel", h.cancelOrder)
 }
 
 type orderLineResponse struct {
@@ -40,11 +41,14 @@ type orderResponse struct {
 	Status       string              `json:"status"`
 	TotalKopecks int64               `json:"total_kopecks"`
 	CreatedAt    time.Time           `json:"created_at"`
+	CancelBefore time.Time           `json:"cancel_before"`
+	CancelledAt  *time.Time          `json:"cancelled_at"`
+	ExpiredAt    *time.Time          `json:"expired_at"`
 	Items        []orderLineResponse `json:"items"`
 }
 
 func orderDTO(order entities.Order) orderResponse {
-	result := orderResponse{ID: order.ID(), Status: order.Status(), TotalKopecks: order.TotalKopecks(), CreatedAt: order.CreatedAt(), Items: make([]orderLineResponse, 0, len(order.Lines()))}
+	result := orderResponse{ID: order.ID(), Status: order.Status(), TotalKopecks: order.TotalKopecks(), CreatedAt: order.CreatedAt(), CancelBefore: order.CancelBefore(), CancelledAt: order.CancelledAt(), ExpiredAt: order.ExpiredAt(), Items: make([]orderLineResponse, 0, len(order.Lines()))}
 	for _, line := range order.Lines() {
 		// The immutable entity validates the product and total on create/restore.
 		amount, _ := entities.LineTotal(line.UnitPriceKopecks, line.Quantity)
@@ -81,6 +85,19 @@ func (h *Handler) order(c *gin.Context) {
 		return
 	}
 	order, err := h.orders.Get(c.Request.Context(), actor(c), id)
+	if err != nil {
+		shoppingHTTPError(c, err)
+		return
+	}
+	c.JSON(200, orderDTO(*order))
+}
+
+func (h *Handler) cancelOrder(c *gin.Context) {
+	id, ok := resourceID(c)
+	if !ok || !emptyAction(c) {
+		return
+	}
+	order, err := h.orders.Cancel(c.Request.Context(), actor(c), id)
 	if err != nil {
 		shoppingHTTPError(c, err)
 		return

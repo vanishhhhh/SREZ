@@ -1,6 +1,13 @@
 package entities
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+const OrderCancellationWindow = 15 * time.Minute
+
+var ErrOrderCancellationClosed = errors.New("order cancellation window closed")
 
 type OrderLineState struct {
 	ProductVariantID, ProductID, BrandID int64
@@ -13,11 +20,14 @@ type OrderState struct {
 	Status       string
 	TotalKopecks int64
 	CreatedAt    time.Time
+	CancelBefore time.Time
+	CancelledAt  *time.Time
+	ExpiredAt    *time.Time
 	Lines        []OrderLineState
 }
 
-// Order is an immutable purchase snapshot. There are no buyer setters for status,
-// total or historical lines; later payment/fulfillment need explicit transitions.
+// Order keeps immutable line and money snapshots. The only buyer transition
+// is unpaid -> cancelled within the self-service window; payment is not implemented.
 type Order struct{ state OrderState }
 
 func orderTotal(lines []OrderLineState) (int64, error) {
@@ -59,20 +69,38 @@ func NewOrder(uid int64, lines []OrderLineState, now time.Time) (*Order, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &Order{OrderState{UserID: uid, Status: "unpaid", TotalKopecks: total, CreatedAt: now, Lines: append([]OrderLineState(nil), lines...)}}, nil
+	return &Order{OrderState{UserID: uid, Status: "unpaid", TotalKopecks: total, CreatedAt: now, CancelBefore: now.Add(OrderCancellationWindow), Lines: append([]OrderLineState(nil), lines...)}}, nil
 }
 func RestoreOrder(s OrderState) (*Order, error) {
-	if s.ID <= 0 || s.Status != "unpaid" {
+	if s.ID <= 0 || (s.Status != "unpaid" && s.Status != "cancelled" && s.Status != "expired") {
 		return nil, invalid("order state")
 	}
 	order, err := NewOrder(s.UserID, s.Lines, s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
-	if s.TotalKopecks != order.TotalKopecks() {
+	if s.TotalKopecks != order.TotalKopecks() || !s.CancelBefore.Equal(order.state.CancelBefore) {
 		return nil, invalid("order total")
 	}
+	switch s.Status {
+	case "unpaid":
+		if s.CancelledAt != nil || s.ExpiredAt != nil {
+			return nil, invalid("cancellation")
+		}
+	case "cancelled":
+		if s.CancelledAt == nil || s.CancelledAt.Before(s.CreatedAt) || !s.CancelledAt.Before(s.CancelBefore) || s.ExpiredAt != nil {
+			return nil, invalid("cancellation")
+		}
+	case "expired":
+		if s.ExpiredAt == nil || s.ExpiredAt.Before(s.CancelBefore) || s.CancelledAt != nil {
+			return nil, invalid("expiry")
+		}
+	}
+
 	order.state.ID = s.ID
+	order.state.Status = s.Status
+	order.state.CancelledAt = copyTime(s.CancelledAt)
+	order.state.ExpiredAt = copyTime(s.ExpiredAt)
 	return order, nil
 }
 func (o Order) ID() int64               { return o.state.ID }
@@ -81,4 +109,45 @@ func (o Order) Status() string          { return o.state.Status }
 func (o Order) TotalKopecks() int64     { return o.state.TotalKopecks }
 func (o Order) CreatedAt() time.Time    { return o.state.CreatedAt }
 func (o Order) Lines() []OrderLineState { return append([]OrderLineState(nil), o.state.Lines...) }
-func (o Order) State() OrderState       { s := o.state; s.Lines = o.Lines(); return s }
+func (o Order) CancelBefore() time.Time { return o.state.CancelBefore }
+func (o Order) CancelledAt() *time.Time { return copyTime(o.state.CancelledAt) }
+func (o Order) ExpiredAt() *time.Time   { return copyTime(o.state.ExpiredAt) }
+func (o Order) State() OrderState {
+	s := o.state
+	s.Lines = o.Lines()
+	s.CancelledAt = o.CancelledAt()
+	s.ExpiredAt = o.ExpiredAt()
+	return s
+}
+func (o *Order) Cancel(now time.Time) error {
+	if o.state.Status == "cancelled" {
+		return nil
+	}
+	if o.state.Status == "expired" {
+		return ErrOrderCancellationClosed
+	}
+	if o.state.Status != "unpaid" {
+		return ErrInvalidTransition
+	}
+	if now.IsZero() || now.Before(o.state.CreatedAt) {
+		return invalid("time")
+	}
+	if !now.Before(o.state.CancelBefore) {
+		return ErrOrderCancellationClosed
+	}
+	o.state.Status = "cancelled"
+	o.state.CancelledAt = copyTime(&now)
+	return nil
+}
+
+func (o *Order) Expire(now time.Time) error {
+	if o.state.Status == "cancelled" || o.state.Status == "expired" {
+		return nil
+	}
+	if o.state.Status != "unpaid" || now.Before(o.state.CancelBefore) {
+		return ErrInvalidTransition
+	}
+	o.state.Status = "expired"
+	o.state.ExpiredAt = copyTime(&now)
+	return nil
+}

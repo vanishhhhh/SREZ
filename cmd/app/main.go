@@ -48,11 +48,16 @@ func main() {
 	h := handler.New(users, brands, products)
 	h.SetManagement(usecase.NewManagement(storage.NewManagement(db)))
 	h.SetShopping(usecase.NewShopping(storage.NewShopping(db)))
-	h.SetOrders(usecase.NewOrders(storage.NewOrders(db)))
+	orders := usecase.NewOrders(storage.NewOrders(db))
+	h.SetOrders(orders)
 	auth := usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(authCfg.HashWorkers), tokens)
 	if err := h.EnableAuth(auth, tokens, authCfg); err != nil {
 		log.Fatal("invalid trusted proxies")
 	}
+
+	expiryCtx, stopExpiry := context.WithCancel(context.Background())
+	defer stopExpiry()
+	go orders.RunReservationExpiry(expiryCtx, 5*time.Second, func(error) { log.Print("order_reservation_expiry_failed") })
 
 	log.Printf("HTTP-сервер запускается на %s", cfg.Addr)
 	if err := h.Run(cfg.Addr); err != nil {

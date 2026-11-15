@@ -111,7 +111,7 @@ func TestPostgresMigrations(t *testing.T) {
 				}
 			}
 			migrate(t, db)
-			if count(t, db, "schema_migrations") != 7 {
+			if count(t, db, "schema_migrations") != 8 {
 				t.Fatal("wrong migration count")
 			}
 			if existing && count(t, db, "users") != 1 {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -26,4 +27,21 @@ func readJSONBody(c *gin.Context) ([]byte, bool) {
 		return nil, false
 	}
 	return body, true
+}
+
+// Bodyless buyer mutations reject supplied data rather than silently ignoring
+// client-controlled owner, price or status fields. Keep the shared size limit.
+func withoutRequestBody(c *gin.Context) bool {
+	if c.Request.Body == nil {
+		return true
+	}
+	body, ok := readJSONBody(c)
+	if !ok {
+		return false
+	}
+	if len(bytes.TrimSpace(body)) != 0 {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "request body is not allowed"})
+		return false
+	}
+	return true
 }

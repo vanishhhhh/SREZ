@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -63,16 +64,14 @@ func (t *cartTx) Purchase(ctx context.Context, order entities.Order) (*entities.
 	}
 	state := order.State()
 	var saved orderRow
-	if err := t.tx.GetContext(ctx, &saved, `INSERT INTO orders(user_id,status,total_kopecks,created_at) VALUES($1,'unpaid',$2,$3) RETURNING id,user_id,status,total_kopecks,created_at`, t.userID, order.TotalKopecks(), order.CreatedAt()); err != nil {
+	if err := t.tx.GetContext(ctx, &saved, `INSERT INTO orders(user_id,status,total_kopecks,created_at,cancel_before) VALUES($1,'unpaid',$2,$3,$4) RETURNING id,user_id,status,total_kopecks,created_at,cancel_before,cancelled_at,expired_at`, t.userID, order.TotalKopecks(), order.CreatedAt(), order.CancelBefore()); err != nil {
 		return nil, err
 	}
-	state.ID, state.CreatedAt = saved.ID, saved.CreatedAt
+	state.ID, state.CreatedAt, state.CancelBefore = saved.ID, saved.CreatedAt, saved.CancelBefore
 	for _, line := range order.Lines() {
-		// Defensive stock predicate and ownership-scoped cart match protect even if
-		// this method is misused. The caller already holds the catalog locks.
-		result, err := t.tx.ExecContext(ctx, `UPDATE product_variants v SET stock=v.stock-$3
- WHERE v.id=$1 AND v.stock>=$3 AND EXISTS(SELECT 1 FROM cart_items ci
- WHERE ci.user_id=$2 AND ci.product_variant_id=v.id AND ci.quantity=$3)`, line.ProductVariantID, t.userID, line.Quantity)
+		// Available stock decreases as a hold, not as a paid sale.
+		result, err := t.tx.ExecContext(ctx, `UPDATE product_variants v SET stock=stock-$3 WHERE v.id=$1 AND stock>=$3
+ AND EXISTS(SELECT 1 FROM cart_items ci WHERE ci.user_id=$2 AND ci.product_variant_id=v.id AND ci.quantity=$3)`, line.ProductVariantID, t.userID, line.Quantity)
 		if err != nil {
 			return nil, err
 		}
@@ -88,9 +87,14 @@ func (t *cartTx) Purchase(ctx context.Context, order entities.Order) (*entities.
 			return nil, err
 		}
 		result, err = t.tx.ExecContext(ctx, `INSERT INTO order_items(order_id,product_variant_id,product_id,brand_id,product_name,color,size,quantity,unit_price_kopecks,subtotal_kopecks)
- SELECT o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11 FROM orders o WHERE o.id=$1 AND o.user_id=$2`,
+ SELECT o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11 FROM orders o JOIN cart_items ci ON ci.user_id=o.user_id AND ci.product_variant_id=$3 AND ci.quantity=$9
+ WHERE o.id=$1 AND o.user_id=$2`,
 			state.ID, t.userID, line.ProductVariantID, line.ProductID, line.BrandID, line.ProductName, line.Color, line.Size, line.Quantity, line.UnitPriceKopecks, amount)
 		if err = changedRow(result, err); err != nil {
+			return nil, err
+		}
+		if err = changedRow(t.tx.ExecContext(ctx, `INSERT INTO order_reservations(order_id,product_variant_id,quantity,reserved_at)
+ SELECT o.id,$3,$4,o.created_at FROM orders o WHERE o.id=$1 AND o.user_id=$2`, state.ID, t.userID, line.ProductVariantID, line.Quantity)); err != nil {
 			return nil, err
 		}
 		if err = changedRow(t.tx.ExecContext(ctx, `DELETE FROM cart_items WHERE user_id=$1 AND product_variant_id=$2 AND quantity=$3`, t.userID, line.ProductVariantID, line.Quantity)); err != nil {
@@ -101,11 +105,14 @@ func (t *cartTx) Purchase(ctx context.Context, order entities.Order) (*entities.
 }
 
 type orderRow struct {
-	ID           int64     `db:"id"`
-	UserID       int64     `db:"user_id"`
-	Status       string    `db:"status"`
-	TotalKopecks int64     `db:"total_kopecks"`
-	CreatedAt    time.Time `db:"created_at"`
+	ID           int64      `db:"id"`
+	UserID       int64      `db:"user_id"`
+	Status       string     `db:"status"`
+	TotalKopecks int64      `db:"total_kopecks"`
+	CreatedAt    time.Time  `db:"created_at"`
+	CancelBefore time.Time  `db:"cancel_before"`
+	CancelledAt  *time.Time `db:"cancelled_at"`
+	ExpiredAt    *time.Time `db:"expired_at"`
 }
 
 func (s *Orders) readOrders(ctx context.Context, uid, id int64) ([]entities.Order, error) {
@@ -115,7 +122,7 @@ func (s *Orders) readOrders(ctx context.Context, uid, id int64) ([]entities.Orde
 	}
 	defer tx.Rollback()
 	var rows []orderRow
-	if err = tx.SelectContext(ctx, &rows, `SELECT id,user_id,status,total_kopecks,created_at FROM orders
+	if err = tx.SelectContext(ctx, &rows, `SELECT id,user_id,status,total_kopecks,created_at,cancel_before,cancelled_at,expired_at FROM orders
  WHERE user_id=$1 AND ($2::bigint=0 OR id=$2) ORDER BY id DESC`, uid, id); err != nil {
 		return nil, err
 	}
@@ -126,27 +133,13 @@ func (s *Orders) readOrders(ctx context.Context, uid, id int64) ([]entities.Orde
 		}
 		return result, nil
 	}
-	var lines []struct {
-		OrderID   int64  `db:"order_id"`
-		VariantID int64  `db:"product_variant_id"`
-		ProductID int64  `db:"product_id"`
-		BrandID   int64  `db:"brand_id"`
-		Name      string `db:"product_name"`
-		Color     string `db:"color"`
-		Size      string `db:"size"`
-		Quantity  int64  `db:"quantity"`
-		Price     int64  `db:"unit_price_kopecks"`
-	}
-	if err = tx.SelectContext(ctx, &lines, `SELECT i.order_id,i.product_variant_id,i.product_id,i.brand_id,i.product_name,i.color,i.size,i.quantity,i.unit_price_kopecks
- FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.user_id=$1 AND ($2::bigint=0 OR o.id=$2) ORDER BY i.order_id DESC,i.id`, uid, id); err != nil {
+	byOrder, err := readOrderLines(ctx, tx, uid, id)
+	if err != nil {
 		return nil, err
 	}
-	byOrder := map[int64][]entities.OrderLineState{}
-	for _, line := range lines {
-		byOrder[line.OrderID] = append(byOrder[line.OrderID], entities.OrderLineState{ProductVariantID: line.VariantID, ProductID: line.ProductID, BrandID: line.BrandID, ProductName: line.Name, Color: line.Color, Size: line.Size, Quantity: line.Quantity, UnitPriceKopecks: line.Price})
-	}
+
 	for _, row := range rows {
-		order, err := entities.RestoreOrder(entities.OrderState{ID: row.ID, UserID: row.UserID, Status: row.Status, TotalKopecks: row.TotalKopecks, CreatedAt: row.CreatedAt, Lines: byOrder[row.ID]})
+		order, err := entities.RestoreOrder(entities.OrderState{ID: row.ID, UserID: row.UserID, Status: row.Status, TotalKopecks: row.TotalKopecks, CreatedAt: row.CreatedAt, CancelBefore: row.CancelBefore, CancelledAt: row.CancelledAt, ExpiredAt: row.ExpiredAt, Lines: byOrder[row.ID]})
 		if err != nil {
 			return nil, err
 		}
@@ -169,4 +162,78 @@ func (s *Orders) FindOrder(ctx context.Context, uid, id int64) (*entities.Order,
 		return nil, nil
 	}
 	return &orders[0], nil
+}
+
+func readOrderLines(ctx context.Context, tx *sqlx.Tx, uid, id int64) (map[int64][]entities.OrderLineState, error) {
+	var lines []struct {
+		OrderID   int64  `db:"order_id"`
+		VariantID int64  `db:"product_variant_id"`
+		ProductID int64  `db:"product_id"`
+		BrandID   int64  `db:"brand_id"`
+		Name      string `db:"product_name"`
+		Color     string `db:"color"`
+		Size      string `db:"size"`
+		Quantity  int64  `db:"quantity"`
+		Price     int64  `db:"unit_price_kopecks"`
+	}
+	if err := tx.SelectContext(ctx, &lines, `SELECT i.order_id,i.product_variant_id,i.product_id,i.brand_id,i.product_name,i.color,i.size,i.quantity,i.unit_price_kopecks
+ FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.user_id=$1 AND ($2::bigint=0 OR o.id=$2) ORDER BY i.order_id DESC,i.id`, uid, id); err != nil {
+		return nil, err
+	}
+	byOrder := map[int64][]entities.OrderLineState{}
+	for _, line := range lines {
+		byOrder[line.OrderID] = append(byOrder[line.OrderID], entities.OrderLineState{ProductVariantID: line.VariantID, ProductID: line.ProductID, BrandID: line.BrandID, ProductName: line.Name, Color: line.Color, Size: line.Size, Quantity: line.Quantity, UnitPriceKopecks: line.Price})
+	}
+	return byOrder, nil
+}
+
+// Reservation release follows catalog -> owned order -> reservations.
+// A future payment path must coordinate with the same order/hold locks.
+func (s *Orders) WithinOrder(ctx context.Context, uid, id int64, fn func(*entities.Order) error) (*entities.Order, error) {
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if err = lockOrderCatalog(ctx, tx, uid, id); err != nil {
+		return nil, err
+	}
+	var row orderRow
+	err = tx.GetContext(ctx, &row, `SELECT id,user_id,status,total_kopecks,created_at,cancel_before,cancelled_at,expired_at FROM orders WHERE id=$1 AND user_id=$2 FOR UPDATE`, id, uid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, usecase.ErrResourceHidden
+	}
+	if err != nil {
+		return nil, err
+	}
+	lines, err := readOrderLines(ctx, tx, uid, id)
+	if err != nil {
+		return nil, err
+	}
+	order, err := entities.RestoreOrder(entities.OrderState{ID: row.ID, UserID: row.UserID, Status: row.Status, TotalKopecks: row.TotalKopecks, CreatedAt: row.CreatedAt, CancelBefore: row.CancelBefore, CancelledAt: row.CancelledAt, ExpiredAt: row.ExpiredAt, Lines: lines[id]})
+	if err != nil {
+		return nil, err
+	}
+	if err = fn(order); err != nil {
+		return nil, err
+	}
+	if row.Status != order.Status() {
+		at := order.CancelledAt()
+		if order.Status() == "expired" {
+			at = order.ExpiredAt()
+		}
+		if at == nil {
+			return nil, entities.ErrInvalidTransition
+		}
+		if err = releaseOrderReservations(ctx, tx, uid, id, *at); err != nil {
+			return nil, err
+		}
+		if err = changedRow(tx.ExecContext(ctx, `UPDATE orders SET status=$3,cancelled_at=$4,expired_at=$5 WHERE id=$1 AND user_id=$2 AND status='unpaid'`, id, uid, order.Status(), order.CancelledAt(), order.ExpiredAt())); err != nil {
+			return nil, err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return order, nil
 }
