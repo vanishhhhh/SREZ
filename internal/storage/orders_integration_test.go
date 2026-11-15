@@ -37,7 +37,7 @@ func TestPostgresOrdersMultiBrandSnapshotsAndOwnership(t *testing.T) {
 		var stock int64
 		pvmCheck(t, f.db.Get(&stock, `SELECT stock FROM product_variants WHERE id=$1`, *line.VariantID))
 		if stock != line.Product.Stock-line.Quantity {
-			t.Fatal("stock not decremented", stock)
+			t.Fatal("reservation did not reduce available stock", stock)
 		}
 	}
 	stored, err := orders.Get(ctx, f.owner, order.ID())
@@ -90,8 +90,13 @@ func TestPostgresOrdersMultiBrandSnapshotsAndOwnership(t *testing.T) {
 	if len(list) != 1 || !reflect.DeepEqual(stored.State(), list[0].State()) {
 		t.Fatal("history list", list)
 	}
+	cancelled, err := orders.Cancel(ctx, f.owner, order.ID())
+	pvmCheck(t, err)
+	if cancelled.Status() != "cancelled" || !reflect.DeepEqual(cancelled.Lines(), stored.Lines()) {
+		t.Fatal("deleted catalog prevented snapshot-preserving cancellation")
+	}
 }
-func TestPostgresOrdersConcurrentLastUnit(t *testing.T) {
+func TestPostgresOrdersConcurrentLastUnitReservation(t *testing.T) {
 	f := newPVMFixture(t, true)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -120,7 +125,7 @@ func TestPostgresOrdersConcurrentLastUnit(t *testing.T) {
 		if r.err == nil {
 			success++
 			if len(cart.Items) != 0 {
-				t.Fatal("winner cart not cleared")
+				t.Fatal("quote cart not cleared")
 			}
 		} else {
 			if !errors.Is(r.err, usecase.ErrInsufficientStock) {
@@ -133,7 +138,7 @@ func TestPostgresOrdersConcurrentLastUnit(t *testing.T) {
 	}
 	var stock int64
 	pvmCheck(t, f.db.Get(&stock, `SELECT stock FROM product_variants WHERE id=$1`, f.variant))
-	if success != 1 || stock != 0 || count(t, f.db, "orders") != 1 || count(t, f.db, "cart_items") != 1 {
+	if success != 1 || stock != 0 || count(t, f.db, "orders") != 1 || count(t, f.db, "order_items") != 1 || count(t, f.db, "cart_items") != 1 {
 		t.Fatal("last unit race", success, stock)
 	}
 }
@@ -198,7 +203,7 @@ func TestPostgresOrdersRollbackLeavesWholeCart(t *testing.T) {
 				pvmCheck(t, f.m.DeleteVariant(ctx, f.owner, f.product, f.color, second.ID()))
 				want = usecase.ErrCartUnavailable
 			case "write":
-				// Fail after the first line was inserted, decremented, and removed. The
+				// Fail after the first line was inserted and its cart row removed. The
 				// surrounding transaction must restore every row, including the first line.
 				exec(t, f.db, fmt.Sprintf(`CREATE FUNCTION fail_second_order_line() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.product_variant_id=%d THEN RAISE EXCEPTION 'injected test failure'; END IF; RETURN NEW; END $$`, second.ID()))
 				exec(t, f.db, `CREATE TRIGGER fail_order_line BEFORE INSERT ON order_items FOR EACH ROW EXECUTE FUNCTION fail_second_order_line()`)

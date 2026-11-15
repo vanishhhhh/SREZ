@@ -31,6 +31,12 @@ func (h *Handler) shoppingRoutes(x *authHTTP) {
 func shoppingHTTPError(c *gin.Context, err error) {
 	status, message := 500, "shopping operation failed"
 	switch {
+	case errors.Is(err, usecase.ErrInventoryConflict):
+		status, message = 409, "inventory update conflict; contact support"
+	case errors.Is(err, entities.ErrOrderCancellationClosed):
+		status, message = 409, "cancellation window closed; contact support"
+	case errors.Is(err, entities.ErrInvalidTransition):
+		status, message = 409, "order cannot be cancelled; contact support"
 	case errors.Is(err, usecase.ErrEmptyCart):
 		status, message = 409, "cart is empty"
 	case errors.Is(err, usecase.ErrResourceHidden):
@@ -82,6 +88,9 @@ func (h *Handler) addFavorite(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if !withoutRequestBody(c) {
+		return
+	}
 	if err := h.shopping.AddFavorite(c.Request.Context(), actor(c), id); err != nil {
 		shoppingHTTPError(c, err)
 		return
@@ -91,6 +100,9 @@ func (h *Handler) addFavorite(c *gin.Context) {
 func (h *Handler) removeFavorite(c *gin.Context) {
 	id, ok := favoriteID(c)
 	if !ok {
+		return
+	}
+	if !withoutRequestBody(c) {
 		return
 	}
 	if err := h.shopping.RemoveFavorite(c.Request.Context(), actor(c), id); err != nil {
@@ -177,6 +189,9 @@ func (h *Handler) setCartItem(c *gin.Context) {
 func (h *Handler) removeCartItem(c *gin.Context) {
 	id, ok := resourceID(c)
 	if !ok {
+		return
+	}
+	if !withoutRequestBody(c) {
 		return
 	}
 	if err := h.shopping.RemoveCartItem(c.Request.Context(), actor(c), id); err != nil {
