@@ -1,44 +1,48 @@
-# Buyer wishlist, cart, checkout and order history
+# Избранное, корзина, оформление и история заказов покупателя
 
-All routes require `Authorization: Bearer <access_token>` and return
-`Cache-Control: no-store`, including errors. The existing JWT middleware supplies
-the buyer ID; cookie-only access is rejected. Owner IDs, independent color/size,
-brand, prices and totals are never accepted from clients. Auth, profile, catalog
-and brand-management contracts are unchanged. Errors use `{"error":"message"}`
-without SQL or account data; existing safe access logging/recovery applies.
+Все маршруты требуют `Authorization: Bearer <access_token>` и возвращают
+`Cache-Control: no-store`, в том числе при ошибках. Существующий обработчик JWT
+передаёт ID покупателя; одной cookie для доступа недостаточно. Клиент не может
+задать владельца, независимые цвет и размер, бренд, цены или итоговые суммы.
+Контракты авторизации, профиля, каталога и управления брендами сохранены.
+Ошибки имеют формат `{"error":"message"}` без SQL и данных учётной записи;
+действуют существующие правила безопасного журналирования и обработки паник.
 
-## Sources and decisions
+## Источники требований и принятые решения
 
-The implementation follows `architecture.md` and the supplied buyer milestones.
-The requested team specification v0.3 was absent from the attachments and the
-current public repository (base `52d6f39`); only `docs/legacy/SPEC.md` was present.
-That historical document is not a product contract. Validation against v0.3,
-including its open decisions, remains pending availability of that specification.
-No existing wishlist/cart/order contract was found, so the defaults below are explicit.
+Реализация следует `architecture.md` и переданным требованиям двух этапов.
+Запрошенная командная спецификация v0.3 отсутствовала во вложениях и текущем
+публичном репозитории на момент начала работы (базовый коммит `52d6f39`);
+доступен только `docs/legacy/SPEC.md`. Этот исторический документ не задаёт
+требования к текущему продукту. Сверка со спецификацией v0.3, включая её открытые
+вопросы, ожидает появления документа. Ранее контракты избранного, корзины и заказов
+не были описаны, поэтому ниже явно зафиксировано выбранное поведение.
 
-## Endpoints
+## Маршруты
 
-| Method | Path | Request | Success |
+| Метод | Путь | Запрос | Успешный ответ |
 | --- | --- | --- | --- |
-| GET | `/favorites` | none | 200, array of saved entries |
-| POST | `/favorites/:product_id` | none | 204, idempotent add |
-| DELETE | `/favorites/:product_id` | none | 204, idempotent remove |
-| GET | `/cart` | none | 200, cart object |
-| POST | `/cart/items` | `{"product_variant_id":21,"quantity":2}` | 200, resulting cart; increments existing quantity |
-| PATCH | `/cart/items/:id` | `{"quantity":3}` | 200, resulting cart; sets absolute quantity |
-| DELETE | `/cart/items/:id` | none | 204; unknown/another buyer's line is 404 |
-| POST | `/orders` | `{}` | 201, one unpaid order for the whole cart |
-| GET | `/orders` | none | 200, own orders newest first |
-| GET | `/orders/:id` | none | 200, owned order; foreign/absent is 404 |
+| GET | `/favorites` | без тела | 200, массив сохранённых товаров |
+| POST | `/favorites/:product_id` | без тела | 204, идемпотентное добавление |
+| DELETE | `/favorites/:product_id` | без тела | 204, идемпотентное удаление |
+| GET | `/cart` | без тела | 200, объект корзины |
+| POST | `/cart/items` | `{"product_variant_id":21,"quantity":2}` | 200, итоговая корзина; количество существующей позиции увеличивается |
+| PATCH | `/cart/items/:id` | `{"quantity":3}` | 200, итоговая корзина; количество заменяется абсолютным значением |
+| DELETE | `/cart/items/:id` | без тела | 204; отсутствующая или чужая позиция — 404 |
+| POST | `/orders` | `{}` | 201, один неоплаченный заказ на всю корзину |
+| GET | `/orders` | без тела | 200, собственные заказы от новых к старым |
+| GET | `/orders/:id` | без тела | 200, собственный заказ; чужой или отсутствующий — 404 |
 
-IDs are positive int64. Quantities must be JSON integers from **1 to 100**, both
-for the request and resulting line; PATCH requires quantity. Missing/null, zero,
-negative, fractional, string and overflowing values fail with 400. Use DELETE
-instead of quantity=0. Body endpoints use the existing strict JSON decoder:
-exactly one object, up to 64 KiB, unknown fields rejected. Favorites operations
-are bodyless. POST cart success is always 200 for either insert or increment.
+ID — положительные значения int64. Количество — целое JSON-число **от 1 до 100**
+как в запросе, так и в итоговой позиции; для PATCH поле `quantity` обязательно.
+Пропущенное поле, null, ноль, отрицательное, дробное, строковое или переполненное
+значение дают 400. Для удаления используйте DELETE вместо `quantity=0`.
+Маршруты с телом используют существующий строгий JSON-декодер: ровно один объект
+размером до 64 КиБ, неизвестные поля запрещены. Операции избранного не требуют
+тела. Успешный POST корзины всегда возвращает 200 и при добавлении новой позиции,
+и при увеличении существующей.
 
-### Favorites
+### Избранное
 
 ```json
 [
@@ -47,17 +51,21 @@ are bodyless. POST cart success is always 200 for either insert or increment.
 ]
 ```
 
-`product` reuses the public catalog card DTO. Entries are ordered by product ID.
-Products must be published and their brands active to be added; zero stock is
-allowed. Duplicate adds use atomic `ON CONFLICT DO NOTHING`. A product that later
-becomes hidden/draft or whose brand is inactive has `product:null`; its saved ID
-remains removable. Re-adding an unavailable product returns 404, even if already
-saved. Removing absent entries always returns 204 and touches only this buyer.
-An empty list is `[]`. Loading uses at most three queries in one read-only
-REPEATABLE READ snapshot (relationships, public products, all children), sharing
-the public catalog batch projection; no per-product requests.
+Поле `product` использует существующий DTO публичной карточки каталога.
+Записи отсортированы по ID товара. Добавить можно только опубликованный товар
+активного бренда; нулевой остаток допустим. Повторные добавления обрабатываются
+атомарным `ON CONFLICT DO NOTHING`. Если товар позднее скрыт, переведён в черновик
+или его бренд стал неактивным, возвращается `product:null`; сохранённый ID
+позволяет удалить запись. Повторное добавление недоступного товара даёт 404,
+даже если он уже сохранён. Удаление отсутствующей записи всегда возвращает 204
+и затрагивает только избранное текущего покупателя. Пустой список — `[]`.
 
-### Cart
+Загрузка выполняет не более трёх запросов в одном согласованном снимке
+транзакции REPEATABLE READ только для чтения: связи, публичные товары и все
+дочерние данные. Переиспользуется пакетная загрузка карточек публичного каталога;
+отдельных запросов для каждого товара нет.
+
+### Корзина
 
 ```json
 {
@@ -70,63 +78,82 @@ the public catalog batch projection; no per-product requests.
 }
 ```
 
-One cart per user is implicit in `cart_items.user_id`. A cart may contain several
-brands. One line per live variant is enforced by UNIQUE(user_id,product_variant_id).
-Items are ordered by cart item ID. Preview is the first image of the selected
-color, by position. Prices are current catalog prices in integer kopecks.
-Availability is `available`, `insufficient_stock` (public but stock < quantity),
-or `unavailable` (deleted variant or non-public catalog). Only **available** lines
-contribute to totals; all other subtotals are zero. Insufficient lines retain
-public product information; unavailable lines expose no catalog fields, with
-`product:null`. A hidden variant's previously saved ID remains; a deleted variant
-has `product_variant_id:null`. Empty cart: `{"items":[],"total_kopecks":0}`.
-Checked multiplication/addition rejects money exceeding int64 with 409. Cart
-mutations also calculate the resulting cart before commit, rolling back on overflow.
-A later price change can make GET fail with 409; DELETE remains available.
+Одна корзина на пользователя определяется полем `cart_items.user_id`.
+В ней могут находиться товары нескольких брендов. Ограничение
+`UNIQUE(user_id,product_variant_id)` обеспечивает одну позицию на существующий
+вариант. Позиции отсортированы по ID строки корзины. Обложка — первое изображение
+выбранного цвета по позиции. Цены берутся из текущего каталога и представлены
+целым числом копеек.
 
-POST requires a currently public variant and resulting quantity <= stock.
-PATCH cannot change unavailable lines (409); they remain removable. A public
-line with insufficient stock may be reduced to a quantity that fits. Every
-cart item lookup/update/delete includes user_id in SQL, so another buyer's ID
-returns the same 404 as an unknown ID. Cart operations never change or reserve stock.
+Доступность обозначается значениями `available`, `insufficient_stock`
+(товар публичный, но остаток меньше количества) и `unavailable` (вариант удалён
+или каталог недоступен публично). В итог входят только позиции **available**;
+суммы остальных позиций равны нулю. При недостаточном остатке публичные сведения
+о товаре сохраняются; недоступные позиции не раскрывают поля каталога и имеют
+`product:null`. У скрытого варианта сохраняется ранее записанный ID, у удалённого
+возвращается `product_variant_id:null`. Пустая корзина:
+`{"items":[],"total_kopecks":0}`.
 
-## Transactions and deletion
+Умножение и сложение проверяются на переполнение int64; превышение диапазона
+денежной суммы даёт 409. Изменения корзины также рассчитывают итог до фиксации
+транзакции и откатываются при переполнении. Последующее изменение цены может
+привести к ответу 409 на GET; удаление через DELETE остаётся доступным.
 
-Migration **006_buyer_shopping.sql** adds favorites, cart_items, FKs, uniqueness,
-quantity constraints and indexes; 001–005 are unchanged. The embedded migration
-runner applies it transactionally and checks checksums as before. No downgrade
-or data recreation is used.
+POST требует публично доступного варианта и итогового количества не больше
+остатка. PATCH не изменяет недоступные позиции (409), но их по-прежнему можно
+удалить. Количество публичной позиции с недостаточным остатком можно уменьшить
+до допустимого значения. Каждый SQL-запрос поиска, изменения или удаления
+позиции содержит `user_id`, поэтому чужой ID даёт тот же 404, что и неизвестный.
+Операции корзины не изменяют и не резервируют остатки.
 
-Every cart mutation is one storage transaction serialized by a transaction
-advisory lock keyed by the negative user ID. This namespace is disjoint from the
-positive migration/seed keys. It also works for empty carts. Management does not
-acquire this lock. POST/PATCH then lock the brand, product and selected children,
-re-read publication/brand/stock, validate the resulting quantity in usecase, and
-mutate. No cart row is locked before catalog locks. Concurrent adds cannot lose
-increments; PostgreSQL uniqueness is an additional safeguard. GET uses one SQL
-statement snapshot with SQL-level redaction and server-side totals.
+## Транзакции и удаление
 
-PVM keeps its brand → membership → product → colors/images/variants protocol.
-Variant/color deletion explicitly sets affected `cart_items.product_variant_id`
-to NULL **before** deleting variants in that same management transaction. Lines
-remain as removable tombstones with their ID and quantity. FK defaults forbid
-accidental raw deletion while a reference exists: there is no cascading cart
-removal or implicit FK detachment. Publication validation failures roll back
-both deletion and detachment. Brand locks serialize adds with deletion; cart
-transactions never hold cart row locks while waiting for a catalog lock, avoiding
-a management/cart lock inversion. Order snapshots deliberately have no live catalog FKs.
+Миграция **006_buyer_shopping.sql** добавляет `favorites`, `cart_items`, внешние
+ключи, ограничения уникальности и количества, а также индексы. Миграции 001–005
+не изменены. Существующий встроенный механизм миграций применяет изменения
+транзакционно и проверяет контрольные суммы. Откат версии схемы и пересоздание
+данных не используются.
 
-## Checkout and history
+Каждое изменение корзины выполняется в одной транзакции хранилища, операции
+которой сериализуются транзакционной advisory-блокировкой с ключом, равным
+отрицательному ID пользователя. Это пространство ключей не пересекается
+с положительными ключами миграций и загрузки демонстрационных данных.
+Блокировка работает и для пустой корзины. Управление каталогом её не получает.
+POST и PATCH затем блокируют бренд, товар и выбранные дочерние данные,
+перечитывают статусы товара и бренда и остаток, проверяют итоговое количество
+в `usecase` и записывают изменения. Строки корзины не блокируются до блокировок
+каталога. Конкурентные добавления не теряют приращения; уникальность PostgreSQL
+служит дополнительной защитой. GET использует снимок одного SQL-запроса,
+скрывает приватные поля на уровне SQL и рассчитывает суммы на сервере.
 
-`POST /orders` requires exactly `{}` as its JSON body. No owner, items, delivery,
-status, total, price or payment data is accepted. It purchases **all** current
-cart lines, including different brands, as one order. There is no partial purchase:
-a single unavailable or insufficient line rejects the checkout with 409. Prices
-are re-read on checkout and may differ from a previous GET /cart. New orders are
-always `unpaid`; no payment or fulfillment transitions are exposed.
+PVM сохраняет порядок блокировок: бренд → участие пользователя в бренде → товар
+→ цвета, изображения и варианты. Удаление варианта или цвета явно обнуляет
+связанные `cart_items.product_variant_id` **до** удаления вариантов в той же
+транзакции управления каталогом. Строки остаются как недоступные позиции
+с прежними ID и количеством; их можно удалить из корзины. Обычные ограничения
+внешних ключей запрещают случайное прямое удаление при наличии ссылки:
+каскадного удаления строк корзины или неявного обнуления ссылки нет.
 
-All three order endpoints use the same DTO. POST returns one object (201),
-GET /orders/:id one object (200), GET /orders an array (200, `[]` if empty):
+Ошибка проверки готовности опубликованного товара откатывает и удаление,
+и обнуление ссылок. Блокировки бренда сериализуют добавление с удалением;
+транзакции корзины не удерживают блокировки её строк во время ожидания
+блокировки каталога. Это исключает обратный порядок блокировок между корзиной
+и управлением каталогом. Снимки заказов намеренно не имеют внешних ключей
+на текущие записи каталога.
+
+## Оформление и история заказов
+
+`POST /orders` требует JSON-тело ровно `{}`. Поля владельца, позиций, доставки,
+статуса, итоговой суммы, цены и оплаты не принимаются. Покупаются **все** текущие
+позиции корзины, включая товары разных брендов, в составе одного заказа.
+Частичного оформления нет: одной недоступной позиции или недостаточного остатка
+достаточно для отказа с 409. Цены перечитываются при оформлении и могут отличаться
+от предыдущего ответа `GET /cart`. Новый заказ всегда имеет статус `unpaid`;
+переходы оплаты и обработки заказа не предоставляются.
+
+Все три маршрута заказов используют один DTO. POST возвращает объект (201),
+`GET /orders/:id` — объект (200), `GET /orders` — массив (200, `[]` при отсутствии
+заказов):
 
 ```json
 {
@@ -141,99 +168,115 @@ GET /orders/:id one object (200), GET /orders an array (200, `[]` if empty):
 }
 ```
 
-Order list sorts by ID descending, lines by insertion ID (cart item order at
-checkout). The minimal history API is unpaginated; pagination is follow-up work.
-Dates use RFC 3339. DTOs omit user_id, and order queries always scope by the JWT
-buyer, including line reads joined through orders.user_id. Foreign IDs return
-404 without disclosing their existence. No separate per-order line query is
-issued: list and detail load headers and all owned lines in two batch queries
-inside one read-only REPEATABLE READ transaction.
+Список заказов сортируется по убыванию ID, позиции — по ID вставки, то есть
+в порядке строк корзины при оформлении. Минимальный API истории пока не имеет
+пагинации; она запланирована отдельно. Даты передаются в RFC 3339.
+DTO не содержит `user_id`, а запросы заказов всегда ограничиваются покупателем
+из JWT, включая чтение позиций через соединение с `orders.user_id`.
+Чужой ID даёт 404 без раскрытия существования заказа. Отдельных запросов
+позиций для каждого заказа нет: список и детальная карточка загружают записи
+заказов и все принадлежащие им позиции двумя пакетными запросами в одной
+транзакции REPEATABLE READ только для чтения.
 
-Migration **007_buyer_orders.sql** adds orders and order_items with buyer/order
-FKs, quantity/money/status checks, one variant per order, and buyer/order indexes.
-All catalog IDs (brand, product, variant) in order_items are immutable historical
-values without live catalog FKs. Text, color, size, quantity and unit price are
-copied; name, price and catalog publication/deletion never affect the order.
-The domain Order has no setters, copies its snapshots, and validates the stored
-sum on restore. The API cannot alter snapshots or client-select a status.
-Runtime SQL access must remain restricted as with existing catalog invariants.
-No earlier migration is edited or renumbered; deployment uses the same runner.
+Миграция **007_buyer_orders.sql** добавляет `orders` и `order_items` с внешними
+ключами покупателя и заказа, проверками количества, денежных сумм и статуса,
+уникальностью варианта внутри заказа и индексами покупателя и заказа.
+Все ID каталога в `order_items` — бренда, товара и варианта — являются
+неизменяемыми историческими значениями без внешних ключей на текущий каталог.
+Текст, цвет, размер, количество и цена за единицу копируются; изменение названия,
+цены, публикации или удаление из каталога не влияют на заказ.
 
-### Checkout atomicity and locking
+Доменная сущность `Order` не имеет методов изменения, копирует снимки
+и проверяет сохранённую сумму при восстановлении. API не позволяет изменять
+снимки или задавать статус с клиента. Доступ к прямому SQL должен оставаться
+ограниченным, как и для существующих инвариантов каталога. Прежние миграции
+не редактируются и не перенумеровываются; используется тот же механизм миграций.
 
-WithinCheckout reuses the same negative-buyer advisory lock as cart writes,
-including empty carts. This serializes simultaneous checkouts of one cart and
-cart add/PATCH/delete against checkout. It discovers brand IDs from the owned
-cart inside the transaction, then acquires **all brand rows in ascending ID
-order** before locking products (ID order), colors (ID order), images
-(color/position order), and variants (ID order). It follows the existing catalog
-hierarchy; buyer operations do not need management memberships. Management locks
-only one brand at a time, so sorting all brands makes cross-brand checkout
-compatible with its protocol. Opposite cart insertion order cannot invert locks.
-No cart row lock is acquired before catalog locks.
+### Атомарность оформления и блокировки
 
-Only after the locks are held does checkout re-read the actual cart and current
-public products/active brands, prices, colors, sizes and stock. A variant deleted
-while checkout waited appears as an unavailable tombstone; price/status/stock
-changes committed before acquiring the brand lock are observed. Supported catalog
-writers share these brand locks; direct SQL must respect the protocol.
+`WithinCheckout` переиспользует ту же advisory-блокировку по отрицательному ID
+покупателя, что и изменения корзины, включая пустую. Это сериализует
+одновременное оформление одной корзины, а также её добавление, изменение
+и удаление позиций относительно оформления. Внутри транзакции сначала
+определяются ID брендов собственной корзины, затем блокируются **все строки
+брендов по возрастанию ID**, после них — товары по ID, цвета по ID, изображения
+по цвету и позиции, варианты по ID.
 
-Usecase rejects empty carts, unavailable lines, insufficient stock, and money
-overflow, then creates an immutable Order through entities. Storage inserts the
-header and snapshots, conditionally decrements stock with `stock >= quantity`
-and an ownership-scoped cart match, and deletes only the corresponding buyer's
-purchased cart lines. All writes share one database transaction. A write failure
-rolls back even already-processed lines, order rows, inventory and cart deletion.
-PostgreSQL stock CHECK is a further defense against negative stock. Cart-only
-operations do not reserve inventory; buyers may both cart the last unit, but
-exactly one checkout can buy it. The losing buyer receives 409 and keeps the cart.
+Сохраняется существующая иерархия каталога; покупателю не требуется участие
+в управлении брендами. Управление каталогом блокирует только один бренд
+за операцию, поэтому единая сортировка всех брендов совместима с его протоколом.
+Обратный порядок добавления товаров разных брендов в корзину не меняет порядок
+блокировок. Строки корзины не блокируются раньше каталога.
 
-**Repeated request behavior:** after successful checkout the cart is empty, so
-an immediate retry returns `409 {"error":"cart is empty"}` and creates no second
-order. Concurrent same-cart requests yield one 201 and one empty-cart 409.
-There is no Idempotency-Key/response replay: after a lost success response, read
-GET /orders. If new items were added before retry, it is a new checkout of that
-current cart. Failed checkouts do not clear the cart and can be retried after the
-buyer fixes the problem. Orders retain their unpaid status and decremented stock
-until a later fulfillment/payment/cancellation design is implemented.
+Только после получения блокировок оформление перечитывает фактическую корзину,
+текущие публичные товары, активность брендов, цены, цвета, размеры и остатки.
+Вариант, удалённый во время ожидания, отображается как недоступная позиция
+с обнулённой ссылкой. Изменения цены, статуса и остатка, зафиксированные
+до получения блокировки бренда, учитываются. Все поддерживаемые операции записи
+каталога используют эти блокировки; прямой SQL также должен соблюдать протокол.
 
-## Follow-up decisions
+`usecase` отклоняет пустую корзину, недоступные позиции, недостаточный остаток
+и переполнение денежных сумм, затем создаёт неизменяемый `Order` через `entities`.
+`storage` вставляет заказ и снимки позиций, условно списывает остатки с проверкой
+`stock >= quantity` и соответствия позиции корзины покупателю, затем удаляет
+только купленные строки его корзины. Все записи выполняются в одной транзакции.
+Ошибка записи откатывает даже уже обработанные позиции, записи заказа, остатки
+и удаление из корзины. Ограничение CHECK на остаток в PostgreSQL дополнительно
+защищает от отрицательных значений. Корзина не резервирует остатки: оба
+покупателя могут добавить последнюю единицу, но купить её сможет только один.
+Проигравший получает 409 и сохраняет корзину.
 
-Guest cart persistence/merge, payment simulation, brand-side fulfillment, partial
-cancellation and delivery remain outside these milestones. The requested v0.3
-was unavailable, so its exact open decisions cannot be quoted or verified.
-Before those features, resolve against that specification:
+**Повторный запрос:** после успешного оформления корзина пуста, поэтому
+немедленный повтор возвращает `409 {"error":"cart is empty"}` без второго заказа.
+Одновременные запросы одной корзины дают один 201 и один 409 из-за пустой корзины.
+Поддержки `Idempotency-Key` и повторной выдачи прежнего ответа нет: при потере
+успешного ответа следует прочитать `GET /orders`. Если перед повтором добавлены
+новые позиции, оформляется новый заказ из текущей корзины. Неудачное оформление
+не очищает корзину; запрос можно повторить после устранения проблемы.
+Неоплаченный статус и списанные остатки сохраняются до реализации последующих
+сценариев обработки, оплаты и отмены заказа.
 
-- Guest merge identity, duplicate-variant quantities, stock conflicts and limits.
-- Payment simulation contract, idempotency/retries, unpaid expiry and whether/how
-  stock is restored on failure or cancellation; no automatic restore exists now.
-- Brand-scoped fulfillment permissions and line/suborder statuses while preserving
-  the buyer's one multi-brand order and immutable snapshots.
-- Partial cancellation eligibility, refund/accounting rules and inventory returns.
-- Delivery addresses/contact data, retention/access, shipping fees and per-brand
-  shipment grouping, including their effect on order totals and snapshots.
+## Открытые вопросы следующих этапов
 
-These are pending implementation questions, not claims about unseen v0.3 text.
+Хранение и объединение гостевой корзины, имитация оплаты, обработка заказа
+брендом, частичная отмена и доставка не входят в эти этапы. Спецификация v0.3
+была недоступна, поэтому её точные открытые вопросы нельзя процитировать
+или проверить. Перед реализацией этих возможностей нужно сверить со спецификацией:
 
-## Errors
+- Идентификацию гостя при объединении корзин, количество одинаковых вариантов,
+  конфликты остатков и ограничения количества.
+- Контракт имитации оплаты, идемпотентность и повторы, срок действия неоплаченного
+  заказа и порядок возврата остатков при ошибке или отмене; автоматического
+  возврата сейчас нет.
+- Права бренда на обработку заказа и статусы позиций или частей заказа
+  с сохранением единого заказа покупателя и неизменяемых снимков.
+- Условия частичной отмены, возвраты денег, правила учёта и возврат остатков.
+- Адреса доставки и контактные данные, сроки хранения и права доступа,
+  стоимость доставки и группировку отправлений по брендам, включая влияние
+  на итог заказа и снимки.
 
-| Status | Reason |
+Это вопросы будущей реализации, а не утверждения о содержании недоступной v0.3.
+
+## Ошибки
+
+| Статус | Причина |
 | --- | --- |
-| 400 | Invalid ID/JSON, unsupported fields or quantity outside 1–100 |
-| 401 | Missing/invalid Bearer JWT |
-| 404 | Unknown/non-public variant or product on add; absent/foreign cart item or order |
-| 409 | Empty checkout, unavailable checkout/PATCH line, insufficient stock, money overflow |
-| 413 | Body exceeds 64 KiB |
-| 500 | Unexpected persistence failure (generic message) |
-| 503 | Shopping/orders dependency not configured; normal startup configures both |
+| 400 | Неверные ID или JSON, недопустимые поля либо количество вне диапазона 1–100 |
+| 401 | Отсутствующий или недействительный Bearer JWT |
+| 404 | Неизвестный или непубличный вариант либо товар при добавлении; отсутствующая или чужая позиция корзины либо заказ |
+| 409 | Пустая корзина при оформлении, недоступная позиция при оформлении или PATCH, недостаточный остаток, переполнение суммы |
+| 413 | Тело больше 64 КиБ |
+| 500 | Неожиданная ошибка хранения; клиент получает общее сообщение |
+| 503 | Зависимость корзины или заказов не настроена; обычный запуск настраивает обе |
 
-## Local PowerShell verification
+## Локальная проверка в PowerShell
 
-Start the app using [PVM setup](product-variant-management.md#ручная-проверка-в-windows-powershell),
-including its registration/login and published product flow. It provides `$api`,
-`$ownerHeaders`, `$product`, `$variant` and a variant with sufficient stock.
-Refresh login if the 15-minute JWT expires. Bearer shopping calls do not use
-refresh cookies or Origin; existing auth Origin/CSRF requirements remain intact.
+Запустите приложение по [инструкции PVM](product-variant-management.md#ручная-проверка-в-windows-powershell),
+включая регистрацию, вход и публикацию товара. После неё доступны `$api`,
+`$ownerHeaders`, `$product`, `$variant` и вариант с достаточным остатком.
+Если 15-минутный JWT истёк, войдите заново. Запросы покупателя с Bearer
+не используют refresh-cookie и не требуют Origin; существующие требования
+Origin и CSRF для авторизации сохранены.
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "$api/favorites/$($product.id)" -Headers $ownerHeaders
@@ -244,7 +287,7 @@ $cart = Invoke-RestMethod -Method Post -Uri "$api/cart/items" -Headers $ownerHea
     -ContentType 'application/json' -Body $body
 $cart = Invoke-RestMethod -Method Post -Uri "$api/cart/items" -Headers $ownerHeaders `
     -ContentType 'application/json' -Body $body
-$cart | ConvertTo-Json -Depth 8 # one line with quantity 2
+$cart | ConvertTo-Json -Depth 8 # одна позиция с количеством 2
 $itemId = $cart.items[0].id
 Invoke-RestMethod -Method Patch -Uri "$api/cart/items/$itemId" -Headers $ownerHeaders `
     -ContentType 'application/json' -Body '{"quantity":1}'
@@ -252,23 +295,25 @@ Invoke-RestMethod -Method Delete -Uri "$api/cart/items/$itemId" -Headers $ownerH
 Invoke-RestMethod -Method Delete -Uri "$api/favorites/$($product.id)" -Headers $ownerHeaders
 ```
 
-Try calls without Authorization (401), quantity=0/101 (400), and another logged-in
-user's cart item ID (404). Inspect the management variant before/after cart calls:
-stock must be unchanged. Hide the product and verify `product:null`, then remove
-its saved entry and cart item. Use only local fixtures you created.
+Проверьте запросы без Authorization (401), с `quantity=0` или `quantity=101`
+(400) и с ID позиции другого авторизованного покупателя (404).
+Прочитайте вариант через API управления до и после операций корзины: остаток
+должен сохраниться. Скройте товар, убедитесь в ответе `product:null`, затем
+удалите его из избранного и корзины. Используйте только созданные вами локальные
+тестовые данные.
 
-### Dedicated PostgreSQL integration tests
+### Интеграционные тесты на отдельной PostgreSQL
 
-Never use development/production DATABASE_URL. Tests use only TEST_DATABASE_URL,
-create isolated schemas, then drop only their own schemas. Example independent
-container (ensure the name and port are free):
+Не используйте DATABASE_URL базы разработки или рабочей базы. Тесты используют
+только TEST_DATABASE_URL, создают отдельные схемы и затем удаляют только свои
+схемы. Пример независимого контейнера; сначала убедитесь, что имя и порт свободны:
 
 ```powershell
 docker run --rm -d --name srez-buyer-tests -e POSTGRES_USER=buyer_test `
     -e POSTGRES_PASSWORD=buyer_test_local -e POSTGRES_DB=buyer_test `
     -p 127.0.0.1:15432:5432 postgres:16-alpine
 docker exec srez-buyer-tests pg_isready -h 127.0.0.1 -U buyer_test -d buyer_test
-# Continue only when accepting connections.
+# Продолжайте только после сообщения о готовности принимать соединения.
 $env:TEST_DATABASE_URL = 'postgres://buyer_test:buyer_test_local@127.0.0.1:15432/buyer_test?sslmode=disable'
 go test ./... -count=1 -timeout 180s
 go vet ./...
@@ -277,10 +322,11 @@ docker stop srez-buyer-tests
 Remove-Item Env:TEST_DATABASE_URL
 ```
 
-### Checkout verification in PowerShell
+### Проверка оформления заказа в PowerShell
 
-After the wishlist/cart example, add a line again and check out. To exercise a
-multi-brand order, add a public variant from a second brand before POST /orders.
+После примера избранного и корзины снова добавьте позицию и оформите заказ.
+Для проверки заказа с товарами разных брендов перед `POST /orders` добавьте
+публичный вариант второго бренда.
 
 ```powershell
 $body = @{ product_variant_id = $variant.id; quantity = 1 } | ConvertTo-Json
@@ -288,41 +334,45 @@ Invoke-RestMethod -Method Post -Uri "$api/cart/items" -Headers $ownerHeaders `
     -ContentType 'application/json' -Body $body | Out-Null
 $order = Invoke-RestMethod -Method Post -Uri "$api/orders" -Headers $ownerHeaders `
     -ContentType 'application/json' -Body '{}'
-$order | ConvertTo-Json -Depth 10 # unpaid; one immutable snapshot per line
-Invoke-RestMethod -Uri "$api/cart" -Headers $ownerHeaders # empty
+$order | ConvertTo-Json -Depth 10 # статус unpaid; неизменяемый снимок каждой позиции
+Invoke-RestMethod -Uri "$api/cart" -Headers $ownerHeaders # пустая корзина
 Invoke-RestMethod -Uri "$api/orders" -Headers $ownerHeaders | ConvertTo-Json -Depth 10
 Invoke-RestMethod -Uri "$api/orders/$($order.id)" -Headers $ownerHeaders
-# Expect 409 from an immediate second POST /orders, not another order.
+# Немедленный повтор POST /orders должен вернуть 409 без создания нового заказа.
 try {
     Invoke-RestMethod -Method Post -Uri "$api/orders" -Headers $ownerHeaders `
         -ContentType 'application/json' -Body '{}'
 } catch { $_.Exception.Response.StatusCode }
 ```
 
-Register/login a different buyer and GET the same order ID with their JWT (404).
-Change the original product price via PVM/management; GET the existing order and
-confirm its price/name/color/size snapshot is unchanged. Only modify local demo
-fixtures. Automated PostgreSQL tests also cover simultaneous purchase of the last
-unit, multi-brand requests in opposite cart order, concurrent checkout of one
-cart, locked price re-read, and injected write failure after a preceding line was
-already written/decremented/deleted (full rollback).
+Зарегистрируйте другого покупателя, войдите и запросите тот же ID заказа
+с его JWT — ожидается 404. Измените цену исходного товара через API управления,
+затем прочитайте заказ и убедитесь, что снимки цены, названия, цвета и размера
+сохранились. Изменяйте только локальные демонстрационные данные.
 
-## Verification performed
+Автоматические тесты PostgreSQL также проверяют одновременную покупку последней
+единицы, оформление корзин с разным порядком товаров нескольких брендов,
+конкурентное оформление одной корзины, перечитывание цены после ожидания
+блокировки и ошибку записи, когда предыдущая позиция уже сохранена, её остаток
+списан, а строка корзины удалена: вся транзакция должна откатиться.
 
-Verified on 15 November 2026 with Go 1.27.2 and a newly created, dedicated
-PostgreSQL 16 test container/database (buyer_test, port 15432):
+## Выполненные проверки
 
-- `gofmt` applied; `gofmt -l cmd internal migrations` returned no files.
-- `go test ./... -count=1 -timeout 180s` passed with TEST_DATABASE_URL set;
-  PostgreSQL integration tests executed, with no database tests skipped.
-- `go vet ./...` and `git diff --check` passed.
+Проверено 15 ноября 2026 года с Go 1.27.2 и отдельно созданными тестовыми
+контейнером и базой PostgreSQL 16 (`buyer_test`, порт 15432):
+
+- Применён `gofmt`; `gofmt -l cmd internal migrations` не вывел файлов.
+- `go test ./... -count=1 -timeout 180s` выполнен с заданным TEST_DATABASE_URL;
+  интеграционные тесты PostgreSQL запускались, тесты БД не пропускались.
+- `go vet ./...` и `git diff --check` прошли успешно.
 - `go test -race ./internal/storage ./internal/handler -run 'Shopping|Orders|Checkout' -count=1 -timeout 180s`
-  passed on the same dedicated test database.
-- Milestone 1 was independently tested before checkout work. The added suite
-  contains 16 test functions plus subcases covering both milestones.
+  успешно выполнен на той же отдельной тестовой базе.
+- Первый этап проверен отдельно до реализации оформления заказов.
+  Добавлены 16 тестовых функций с дополнительными сценариями для обоих этапов.
 
-An initial optional race build hit the workspace disk limit; after removing an
-unused toolchain container image downloaded for this task, its final run passed.
-The PowerShell commands are documented but were not executed here (pwsh is not
-installed). Team specification v0.3 verification remains unavailable as described
-above. No development or production database was used.
+Первая дополнительная сборка для проверки гонок упёрлась в ограничение места
+на диске. После удаления неиспользуемого образа контейнера с инструментами Go,
+загруженного для этой задачи, итоговая проверка прошла. Команды PowerShell
+документированы, но здесь не выполнялись: `pwsh` отсутствует. Сверка с командной
+спецификацией v0.3 остаётся недоступной по указанной выше причине.
+Базы разработки и рабочие базы не использовались.

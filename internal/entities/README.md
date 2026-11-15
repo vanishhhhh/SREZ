@@ -137,15 +137,20 @@ Usecase обязан передать **полные актуальные кол
 одна ProductImage не может доказать уникальность/полноту всей коллекции.
 Описание и примеры: [Product Variant Management](../../docs/product-variant-management.md).
 
-## Buyer money and quantity
+## Денежные суммы, количество и заказы покупателя
 
-ValidateCartQuantity enforces 1–100. LineTotal/AddMoney use checked int64 kopecks;
-overflow returns ErrMoneyOverflow. Stock/publication/ownership checks require the
-Shopping usecase and a consistent storage transaction, not these local helpers.
+`ValidateCartQuantity` ограничивает количество диапазоном 1–100.
+`LineTotal` и `AddMoney` рассчитывают суммы в копейках в пределах int64
+с проверкой переполнения; при превышении диапазона возвращается
+`ErrMoneyOverflow`. Проверки остатков, публикации и принадлежности ресурсов
+требуют сценария `Shopping` и согласованной транзакции хранилища;
+эти локальные функции их не обеспечивают.
 
-Order is an immutable snapshot with private state: buyer, unpaid status, creation
-time and copied lines (historical brand/product/variant IDs, product name, color,
-size, quantity and unit price). NewOrder computes the checked total; RestoreOrder
-rejects invalid snapshots or mismatched totals. State/Lines return copies and no
-setters exist. Catalog availability, buyer ownership and atomic stock decrement
-are coordinated by Orders usecase with CheckoutTx, not by the snapshot entity.
+`Order` — неизменяемый снимок с закрытым состоянием: покупатель, неоплаченный
+статус, время создания и копии позиций с историческими ID бренда, товара
+и варианта, названием товара, цветом, размером, количеством и ценой за единицу.
+`NewOrder` рассчитывает итог с защитой от переполнения; `RestoreOrder` отклоняет
+некорректные снимки и несовпадение сумм. `State` и `Lines` возвращают копии;
+методов изменения нет. Доступность каталога, принадлежность покупателю
+и атомарное списание остатков координируются сценарием `Orders`
+через `CheckoutTx`, а не самой сущностью снимка.
