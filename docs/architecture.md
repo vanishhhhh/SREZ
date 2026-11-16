@@ -396,3 +396,36 @@ cmd/app запускает Orders.RunReservationExpiry сразу после с�
 Банковский чарджбэк нельзя запретить кодом приложения. Порядок поддержки и
 несогласованные меры описаны в [chargebacks-and-support.md](chargebacks-and-support.md),
 результаты аудита — в [transaction-security-audit.md](transaction-security-audit.md).
+
+## Media Ownership / Phase 2
+
+`Media` — отдельный usecase поверх существующего Management/RBAC и sqlx
+managementTx. Прямой presigned upload API отключён. Backend принимает только
+ограниченный raw File/Blob, проверяет и нормализует его до первого S3 PUT.
+
+Миграция 010 добавляет `media_assets` (физический объект и immutable target),
+`media_upload_requests` (техническое состояние загрузки) и FK-ссылки avatar/logo/
+banner/product image. Deferred SQL checks требуют ready + ровно одну правильную
+доменную ссылку при commit. Publication вычисляется по текущему состоянию сущности.
+Detach ставит asset на удаление в той же транзакции; worker выполняет S3 DELETE
+только после commit и повторной проверки отсутствия ссылок. Processing имеет TTL,
+а неоднозначный commit не вызывает немедленного удаления объекта.
+
+Write-policy остаётся прежней: avatar только actor, оформление brand — owner,
+фото product/color — active owner/editor. Brand → membership → product → children
+блокируются существующим withProduct; upload/request → asset добавляются после
+них. Avatar использует user FOR NO KEY UPDATE. GC не держит asset-lock во время
+S3 I/O и обновляет upload state после освобождения asset-lock, без инверсии порядка.
+
+Legacy HTTPS validation не ослаблена: доменные источники разделены на URL и
+managed reference. HTTP DTO сохраняют прежние поля, формируя относительный
+media proxy URL для managed записей. Ни HTTP URL, ни CDN hostname не являются
+постоянным идентификатором S3-объекта в БД.
+
+Подробности: [модель, API, лимиты и recovery](media-storage.md),
+[проверки](media-storage-validation.md), [security review](media-storage-security-review.md).
+
+После независимого аудита: admission разделён на один upload и два delivery
+slots; startup консервативно проверяет ACL/policy; runtime проверяет сохранённый
+bucket. Миграция 011 отделяет обязательную очистку (100) от конечного resweep (10,
+24 часа), с наблюдаемым backlog. [Обоснования и регрессии](media-storage-audit-fixes.md).
