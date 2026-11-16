@@ -123,7 +123,7 @@ func loadCardChildren(ctx context.Context, tx *sqlx.Tx, cards []usecase.ProductC
 		err = tx.SelectContext(ctx, &children, `SELECT c.product_id, c.id AS color_id, c.color,
  COALESCE(image.url, '') AS preview_image_url, v.id AS variant_id, v.size, v.stock
  FROM product_colors c
- LEFT JOIN LATERAL (SELECT url FROM product_color_images WHERE product_color_id = c.id ORDER BY position LIMIT 1) image ON true
+ LEFT JOIN LATERAL (SELECT COALESCE(url,'/media/assets/'||media_id::text||'/content') AS url FROM product_color_images WHERE product_color_id = c.id ORDER BY position LIMIT 1) image ON true
  LEFT JOIN product_variants v ON v.product_color_id = c.id
  WHERE c.product_id = ANY($1) ORDER BY c.product_id, c.id, v.id`, pq.Array(ids))
 		if err != nil {

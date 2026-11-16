@@ -106,18 +106,19 @@ func (t *managementTx) DeleteVariant(ctx context.Context, colorID, variantID int
 }
 
 type productImageRow struct {
-	ID       int64  `db:"id"`
-	ColorID  int64  `db:"product_color_id"`
-	URL      string `db:"url"`
-	Position int    `db:"position"`
+	ID       int64          `db:"id"`
+	ColorID  int64          `db:"product_color_id"`
+	URL      sql.NullString `db:"url"`
+	MediaID  sql.NullInt64  `db:"media_id"`
+	Position int            `db:"position"`
 }
 
 func (r productImageRow) image() (*entities.ProductImage, error) {
-	return entities.RestoreProductImage(entities.ProductImageState{ID: r.ID, ProductColorID: r.ColorID, URL: r.URL, Position: r.Position})
+	return entities.RestoreProductImage(entities.ProductImageState{ID: r.ID, ProductColorID: r.ColorID, URL: r.URL.String, MediaID: r.MediaID.Int64, Position: r.Position})
 }
 func (t *managementTx) Images(ctx context.Context, colorID int64) ([]entities.ProductImage, error) {
 	var rows []productImageRow
-	err := t.tx.SelectContext(ctx, &rows, `SELECT i.id,i.product_color_id,i.url,i.position FROM product_color_images i
+	err := t.tx.SelectContext(ctx, &rows, `SELECT i.id,i.product_color_id,i.url,i.media_id,i.position FROM product_color_images i
  JOIN product_colors c ON c.id=i.product_color_id JOIN products p ON p.id=c.product_id
  WHERE c.id=$1 AND p.brand_id=$2 ORDER BY i.position,i.id FOR UPDATE OF i`, colorID, t.brandID)
 	if err != nil {
@@ -142,9 +143,9 @@ func (t *managementTx) InsertImage(ctx context.Context, image entities.ProductIm
 		return nil, err
 	}
 	var row productImageRow
-	err := t.tx.GetContext(ctx, &row, `INSERT INTO product_color_images(product_color_id,url,position)
- SELECT c.id,$2,$3 FROM product_colors c JOIN products p ON p.id=c.product_id WHERE c.id=$1 AND p.brand_id=$4
- RETURNING id,product_color_id,url,position`, image.ProductColorID(), image.URL(), image.Position(), t.brandID)
+	err := t.tx.GetContext(ctx, &row, `INSERT INTO product_color_images(product_color_id,url,position,media_id)
+ SELECT c.id,NULLIF($2,''),$3,NULLIF($5,0) FROM product_colors c JOIN products p ON p.id=c.product_id WHERE c.id=$1 AND p.brand_id=$4
+ RETURNING id,product_color_id,url,media_id,position`, image.ProductColorID(), image.URL(), image.Position(), t.brandID, image.MediaID())
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, usecase.ErrResourceHidden
 	}
@@ -157,9 +158,9 @@ func (t *managementTx) SaveImage(ctx context.Context, image entities.ProductImag
 	if err := t.deferImagePositions(ctx); err != nil {
 		return err
 	}
-	return changedRow(t.tx.ExecContext(ctx, `UPDATE product_color_images i SET url=$3,position=$4 WHERE i.id=$1 AND i.product_color_id=$2
+	return changedRow(t.tx.ExecContext(ctx, `UPDATE product_color_images i SET url=NULLIF($3,''),position=$4,media_id=NULLIF($6,0) WHERE i.id=$1 AND i.product_color_id=$2
  AND EXISTS(SELECT 1 FROM product_colors c JOIN products p ON p.id=c.product_id WHERE c.id=i.product_color_id AND p.brand_id=$5)`,
-		image.ID(), image.ProductColorID(), image.URL(), image.Position(), t.brandID))
+		image.ID(), image.ProductColorID(), image.URL(), image.Position(), t.brandID, image.MediaID()))
 }
 func (t *managementTx) DeleteImage(ctx context.Context, colorID, imageID int64) error {
 	return changedRow(t.tx.ExecContext(ctx, `DELETE FROM product_color_images i WHERE i.id=$1 AND i.product_color_id=$2

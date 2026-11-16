@@ -80,9 +80,9 @@ func TestUserEndpoints(t *testing.T) {
 		{"public user", "GET", "/users/1", "", 200, publicMockUserJSON},
 		{"own profile", "GET", "/profile", "", 200, profileMockUserJSON},
 		{"create", "POST", "/users", createMockUserJSON, 201, `{"id":2,"username":"roman_1","display_name":"Роман","avatar_url":""}`},
-		{"change both", "PUT", "/users/1", `{"display_name":" Новое имя ","avatar_url":"https://example.com/new.png"}`, 200, `{"id":1,"username":"demo_user","display_name":"Новое имя","avatar_url":"https://example.com/new.png"}`},
+		{"change both", "PUT", "/users/1", `{"display_name":" Новое имя ","avatar_url":"https://example.com/new.png"}`, 400, `{"error":"use media upload for avatars"}`},
 		{"name only", "PUT", "/users/1", `{"display_name":"Рома"}`, 200, `{"id":1,"username":"demo_user","display_name":"Рома","avatar_url":"https://example.com/users/1/avatar.png"}`},
-		{"clear avatar", "PUT", "/users/1", `{"avatar_url":""}`, 200, `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":""}`},
+		{"clear avatar", "PUT", "/users/1", `{"avatar_url":""}`, 400, `{"error":"use media upload for avatars"}`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			response := catalogRequest(t, h, tt.method, tt.path, tt.body)
@@ -168,13 +168,13 @@ func TestUserMocksDoNotPersist(t *testing.T) {
 			t.Fatalf("create status = %d", created.Code)
 		}
 		assertCatalogError(t, catalogRequest(t, h, "GET", "/users/2", ""), 404)
-		updated := catalogRequest(t, h, "PUT", "/users/1", `{"display_name":"Изменён","avatar_url":""}`)
+		updated := catalogRequest(t, h, "PUT", "/users/1", `{"display_name":"Изменён"}`)
 		if updated.Code != 200 {
 			t.Fatalf("update status = %d", updated.Code)
 		}
 		assertCatalogJSON(t, catalogRequest(t, h, "GET", "/users/1", "").Body.Bytes(), publicMockUserJSON)
 		assertCatalogJSON(t, catalogRequest(t, h, "GET", "/profile", "").Body.Bytes(), profileMockUserJSON)
-		assertCatalogJSON(t, catalogRequest(t, h, "PUT", "/users/1", `{"avatar_url":""}`).Body.Bytes(), `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":""}`)
+		assertCatalogError(t, catalogRequest(t, h, "PUT", "/users/1", `{"avatar_url":""}`), 400)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestUserBodyLimits(t *testing.T) {
 		success                   int
 	}{
 		{http.MethodPost, "/users", createMockUserJSON, `{"id":2,"username":"roman_1","display_name":"Роман","avatar_url":""}`, http.StatusCreated},
-		{http.MethodPut, "/users/1", `{"avatar_url":""}`, `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":""}`, http.StatusOK},
+		{http.MethodPut, "/users/1", `{"display_name":"Рома"}`, `{"id":1,"username":"demo_user","display_name":"Рома","avatar_url":"https://example.com/users/1/avatar.png"}`, http.StatusOK},
 	} {
 		for _, tt := range []struct {
 			name, body string

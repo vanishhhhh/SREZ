@@ -190,7 +190,7 @@ func (p Product) ValidatePublication(data ProductPublication) error {
 			return err
 		}
 		name := normalizedTextKey(c.Color())
-		if c.ID() <= 0 || c.ProductID() != p.ID() || len(c.state.Images) == 0 || colors[c.ID()] || colorNames[name] {
+		if c.ID() <= 0 || c.ProductID() != p.ID() || len(c.ImageSources()) == 0 || colors[c.ID()] || colorNames[name] {
 			return fmt.Errorf("product colors: %w", ErrNotReady)
 		}
 		colors[c.ID()] = true

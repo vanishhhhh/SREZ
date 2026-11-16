@@ -25,7 +25,10 @@ func auditLegacyOrder(t *testing.T, db *sqlx.DB) (int64, int64, int64, int64) {
 		exec(t, db, `INSERT INTO schema_migrations(version,checksum)VALUES($1,$2)`, name, fmt.Sprintf("%x", sha256.Sum256(body)))
 	}
 	seed(t, db)
-	uid := managedUser(t, usecase.NewUsers(storage.NewUsers(db)), "legacy_order_buyer")
+	// This fixture intentionally predates media migration 010; use its historical
+	// SQL shape instead of today's repository projection containing media columns.
+	var uid int64
+	pvmCheck(t, db.Get(&uid, `INSERT INTO users(email,username,display_name,password_hash,created_at,updated_at) VALUES('legacy_order_buyer@example.com','legacy_order_buyer','Legacy buyer','!',now(),now()) RETURNING id`))
 	var v, stock int64
 	pvmCheck(t, db.Get(&v, `SELECT min(id) FROM product_variants WHERE stock>=2`))
 	pvmCheck(t, db.Get(&stock, `SELECT stock FROM product_variants WHERE id=$1`, v))

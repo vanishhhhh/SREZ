@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"srez/internal/config"
 	"srez/internal/handler"
+	"srez/internal/objectstorage"
 	"srez/internal/security"
 	"srez/internal/storage"
 	"srez/internal/usecase"
@@ -50,6 +52,32 @@ func main() {
 	h.SetShopping(usecase.NewShopping(storage.NewShopping(db)))
 	orders := usecase.NewOrders(storage.NewOrders(db))
 	h.SetOrders(orders)
+	if mediaCfg, enabled := config.LoadMedia(); enabled {
+		objects, err := objectstorage.New(mediaCfg)
+		if err != nil {
+			log.Fatal("invalid media configuration")
+		}
+		readyCtx, readyCancel := context.WithTimeout(context.Background(), 25*time.Second)
+		err = objects.EnsureBucket(readyCtx)
+		if err == nil {
+			err = objects.RetireStaging(readyCtx)
+		}
+		readyCancel()
+		if err != nil {
+			log.Fatal("media storage unavailable or bucket initialization failed")
+		}
+		media := usecase.NewMedia(storage.NewMedia(db), objects, mediaCfg.Bucket, usecase.NewManagement(storage.NewManagement(db)))
+		h.SetMedia(media)
+		go media.RunCleanup(context.Background(), func(e error) {
+			if errors.Is(e, usecase.ErrMediaBucketMismatch) {
+				log.Print("media_bucket_configuration_mismatch")
+			} else {
+				log.Print("media_cleanup_failed")
+			}
+		}, func(b usecase.MediaGCBacklog) {
+			log.Printf("media_gc pending=%d oldest_seconds=%.0f reconciliation=%d", b.Pending, b.OldestSeconds, b.Reconciliation)
+		})
+	}
 	auth := usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(authCfg.HashWorkers), tokens)
 	if err := h.EnableAuth(auth, tokens, authCfg); err != nil {
 		log.Fatal("invalid trusted proxies")

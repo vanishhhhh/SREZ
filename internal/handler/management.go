@@ -141,6 +141,10 @@ func (h *Handler) patchBrand(c *gin.Context) {
 	if !decodeUserRequest(c, &r) {
 		return
 	}
+	if r.LogoURL != nil || r.BannerURL != nil {
+		c.JSON(400, errorResponse{"use media upload for brand images"})
+		return
+	}
 	p := usecase.BrandPatch{Name: r.Name, Slug: r.Slug, Description: r.Description, LogoURL: r.LogoURL, BannerURL: r.BannerURL}
 	if r.Contacts != nil {
 		p.Contacts = &entities.BrandContacts{Email: r.Contacts.Email, TelegramURL: r.Contacts.TelegramURL, WebsiteURL: r.Contacts.WebsiteURL}

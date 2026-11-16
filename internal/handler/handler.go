@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -16,6 +17,7 @@ type Handler struct {
 	management *usecase.Management
 	shopping   *usecase.Shopping
 	orders     *usecase.Orders
+	media      *usecase.Media
 }
 
 func NewWithUsers(users *usecase.Users) *Handler {
@@ -40,7 +42,8 @@ func New(users *usecase.Users, brands *usecase.Brands, products *usecase.Product
 }
 
 func (h *Handler) Run(addr string) error {
-	return h.router.Run(addr)
+	server := &http.Server{Addr: addr, Handler: h.router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	return server.ListenAndServe()
 }
 
 func GetProjects(c *gin.Context) {

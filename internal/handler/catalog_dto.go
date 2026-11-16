@@ -77,7 +77,7 @@ type productVariantResponse struct {
 func productDetailDTO(product entities.Product, publication entities.ProductPublication) productDetailResponse {
 	response := productDetailResponse{productResponse: productDTO(product), Colors: make([]productColorResponse, 0, len(publication.Colors))}
 	for _, color := range publication.Colors {
-		item := productColorResponse{ID: color.ID(), Color: color.Color(), Images: color.Images(), Variants: []productVariantResponse{}}
+		item := productColorResponse{ID: color.ID(), Color: color.Color(), Images: colorImageURLs(color), Variants: []productVariantResponse{}}
 		for _, variant := range publication.Variants {
 			if variant.ProductColorID() == color.ID() {
 				item.Variants = append(item.Variants, productVariantResponse{ID: variant.ID(), Size: variant.Size(), Stock: variant.Stock(), SKU: variant.SKU()})
@@ -112,7 +112,7 @@ func brandDTO(brand entities.Brand) brandResponse {
 	contacts, appearance := brand.Contacts(), brand.Appearance()
 	return brandResponse{
 		ID: brand.ID(), Name: brand.Name(), Slug: brand.Slug(), Description: brand.Description(),
-		LogoURL: brand.LogoURL(), BannerURL: brand.BannerURL(), Status: string(brand.Status()),
+		LogoURL: mediaURL(brand.LogoURL(), brand.LogoMediaID()), BannerURL: mediaURL(brand.BannerURL(), brand.BannerMediaID()), Status: string(brand.Status()),
 		Contacts: brandContactsResponse{
 			Email: contacts.Email, TelegramURL: contacts.TelegramURL, WebsiteURL: contacts.WebsiteURL,
 		},
@@ -121,4 +121,12 @@ func brandDTO(brand entities.Brand) brandResponse {
 		},
 		CreatedAt: brand.CreatedAt(), UpdatedAt: brand.UpdatedAt(),
 	}
+}
+
+func colorImageURLs(c entities.ProductColor) []string {
+	out := []string{}
+	for _, source := range c.ImageSources() {
+		out = append(out, mediaURL(source.URL, source.MediaID))
+	}
+	return out
 }

@@ -137,7 +137,10 @@ func TestPostgresHTTPAuthManagementCatalogIntegration(t *testing.T) {
 	var brand brandResponse
 	decode(call("POST", "/brands", `{"name":"Cross Brand","slug":"cross-brand"}`, rotated.AccessToken, "", nil, 201), &brand)
 	bid := strconv.FormatInt(brand.ID, 10)
-	call("PATCH", "/brands/"+bid, `{"description":"Complete brand","logo_url":"https://example.com/logo.png"}`, rotated.AccessToken, "", nil, 200)
+	if _, e := db.Exec(`UPDATE brands SET logo_url='https://example.com/logo.png' WHERE id=$1`, brand.ID); e != nil {
+		t.Fatal(e)
+	}
+	call("PATCH", "/brands/"+bid, `{"description":"Complete brand"}`, rotated.AccessToken, "", nil, 200)
 	call("POST", "/brands/"+bid+"/publish", "{}", rotated.AccessToken, "", nil, 200)
 	call("POST", "/brands/"+bid+"/invitations", `{"username":"cross_editor"}`, rotated.AccessToken, "", nil, 201)
 	call("POST", "/brands/"+bid+"/invitations/accept", "{}", editorLogin.AccessToken, "", nil, 200)

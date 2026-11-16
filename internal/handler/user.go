@@ -38,7 +38,7 @@ type profileResponse struct {
 }
 
 func publicUserDTO(user entities.User) publicUserResponse {
-	return publicUserResponse{ID: user.ID(), Username: user.Username(), DisplayName: user.DisplayName(), AvatarURL: user.AvatarURL()}
+	return publicUserResponse{ID: user.ID(), Username: user.Username(), DisplayName: user.DisplayName(), AvatarURL: mediaURL(user.AvatarURL(), user.AvatarMediaID())}
 }
 
 // Strict decoding is local to User endpoints; Gin settings are unchanged.
@@ -120,6 +120,10 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	}
 	var request updateUserRequest
 	if !decodeUserRequest(c, &request) {
+		return
+	}
+	if request.AvatarURL != nil {
+		c.JSON(400, errorResponse{"use media upload for avatars"})
 		return
 	}
 	user, err := h.users.Update(c.Request.Context(), id, request.DisplayName, request.AvatarURL)

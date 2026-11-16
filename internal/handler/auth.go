@@ -43,6 +43,7 @@ func (h *Handler) EnableAuth(a *usecase.Auth, t *security.Tokens, cfg config.Aut
 	h.managementRoutes(x)
 	h.shoppingRoutes(x)
 	h.orderRoutes(x)
+	h.mediaRoutes(x)
 	return nil
 }
 func (x *authHTTP) source(c *gin.Context) {
@@ -237,6 +238,10 @@ func (h *Handler) profile(c *gin.Context) {
 func (h *Handler) patchProfile(c *gin.Context) {
 	var r updateUserRequest
 	if !decodeUserRequest(c, &r) {
+		return
+	}
+	if r.AvatarURL != nil {
+		c.JSON(400, errorResponse{"use media upload for avatars"})
 		return
 	}
 	u, e := h.users.Update(c.Request.Context(), c.MustGet("auth_user_id").(int64), r.DisplayName, r.AvatarURL)
