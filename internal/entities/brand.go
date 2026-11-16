@@ -18,6 +18,7 @@ const (
 type BrandState struct {
 	ID                                          int64
 	Name, Slug, Description, LogoURL, BannerURL string
+	LogoMediaID, BannerMediaID                  int64
 	Contacts                                    BrandContacts
 	Appearance                                  BrandAppearance
 	Status                                      BrandStatus
@@ -61,7 +62,7 @@ func validateBrand(s BrandState) error {
 	if !validText(s.Description, 0, 5000) {
 		return invalid("brand.description")
 	}
-	if !validURL(s.LogoURL, true) || !validURL(s.BannerURL, true) {
+	if !validURL(s.LogoURL, true) || !validURL(s.BannerURL, true) || s.LogoMediaID < 0 || s.BannerMediaID < 0 || (s.LogoMediaID > 0 && s.LogoURL != "") || (s.BannerMediaID > 0 && s.BannerURL != "") {
 		return invalid("brand.image_url")
 	}
 	if err := s.Contacts.Validate(); err != nil {
@@ -76,7 +77,7 @@ func validateBrand(s BrandState) error {
 	switch s.Status {
 	case BrandDraft, BrandSuspended:
 	case BrandActive:
-		if s.Slug == "" || strings.TrimSpace(s.Description) == "" || s.LogoURL == "" {
+		if s.Slug == "" || strings.TrimSpace(s.Description) == "" || (s.LogoURL == "" && s.LogoMediaID == 0) {
 			return fmt.Errorf("brand requires slug, description and logo: %w", ErrNotReady)
 		}
 	default:
@@ -117,11 +118,13 @@ func (b *Brand) ChangeDescription(v string, now time.Time) error {
 func (b *Brand) ChangeLogo(v string, now time.Time) error {
 	s := b.state
 	s.LogoURL = v
+	s.LogoMediaID = 0
 	return b.change(s, now)
 }
 func (b *Brand) ChangeBanner(v string, now time.Time) error {
 	s := b.state
 	s.BannerURL = v
+	s.BannerMediaID = 0
 	return b.change(s, now)
 }
 func (b *Brand) ChangeContacts(v BrandContacts, now time.Time) error {
@@ -165,3 +168,18 @@ func (b Brand) Appearance() BrandAppearance { return b.state.Appearance }
 func (b Brand) Status() BrandStatus         { return b.state.Status }
 func (b Brand) CreatedAt() time.Time        { return b.state.CreatedAt }
 func (b Brand) UpdatedAt() time.Time        { return b.state.UpdatedAt }
+
+func (b Brand) LogoMediaID() int64   { return b.state.LogoMediaID }
+func (b Brand) BannerMediaID() int64 { return b.state.BannerMediaID }
+func (b *Brand) ChangeLogoMedia(id int64, now time.Time) error {
+	s := b.state
+	s.LogoURL = ""
+	s.LogoMediaID = id
+	return b.change(s, now)
+}
+func (b *Brand) ChangeBannerMedia(id int64, now time.Time) error {
+	s := b.state
+	s.BannerURL = ""
+	s.BannerMediaID = id
+	return b.change(s, now)
+}

@@ -26,6 +26,7 @@ type managedImageResponse struct {
 	ProductColorID int64  `json:"product_color_id"`
 	URL            string `json:"url"`
 	Position       int    `json:"position"`
+	MediaID        int64  `json:"media_id,omitempty"`
 }
 type colorWriteRequest struct {
 	Color *string `json:"color"`
@@ -38,10 +39,11 @@ type variantWriteRequest struct {
 type imageWriteRequest struct {
 	URL      *string `json:"url"`
 	Position *int    `json:"position"`
+	MediaID  *int64  `json:"media_id"`
 }
 
 func managedColorDTO(c entities.ProductColor) managedColorResponse {
-	images := c.Images()
+	images := colorImageURLs(c)
 	if images == nil {
 		images = []string{}
 	}
@@ -51,7 +53,7 @@ func managedVariantDTO(v entities.ProductVariant) managedVariantResponse {
 	return managedVariantResponse{v.ID(), v.ProductColorID(), v.Size(), int64(v.Stock()), v.SKU()}
 }
 func managedImageDTO(i entities.ProductImage) managedImageResponse {
-	return managedImageResponse{i.ID(), i.ProductColorID(), i.URL(), i.Position()}
+	return managedImageResponse{i.ID(), i.ProductColorID(), mediaURL(i.URL(), i.MediaID()), i.Position(), i.MediaID()}
 }
 
 func (h *Handler) variantRoutes(add func(string, string, gin.HandlerFunc)) {
@@ -243,16 +245,16 @@ func (h *Handler) createImage(c *gin.Context) {
 	if !decodeUserRequest(c, &r) {
 		return
 	}
-	if r.URL == nil {
+	if r.URL != nil || r.MediaID == nil || *r.MediaID <= 0 {
 		managementHTTPError(c, entities.ErrInvalidValue)
 		return
 	}
-	i, err := h.management.CreateImage(c.Request.Context(), actor(c), ids[0], ids[1], *r.URL, r.Position)
+	i, err := h.management.ConfirmManagedImage(c.Request.Context(), actor(c), ids[0], ids[1], *r.MediaID, r.Position)
 	if err != nil {
 		managementHTTPError(c, err)
 		return
 	}
-	c.JSON(201, managedImageDTO(*i))
+	c.JSON(200, managedImageDTO(*i))
 }
 func (h *Handler) patchImage(c *gin.Context) {
 	ids, ok := variantIDs(c, "color_id", "image_id")
@@ -263,7 +265,11 @@ func (h *Handler) patchImage(c *gin.Context) {
 	if !decodeUserRequest(c, &r) {
 		return
 	}
-	i, err := h.management.ChangeImage(c.Request.Context(), actor(c), ids[0], ids[1], ids[2], usecase.ImagePatch{URL: r.URL, Position: r.Position})
+	if r.URL != nil {
+		c.JSON(400, errorResponse{"external image URLs are read-only"})
+		return
+	}
+	i, err := h.management.ChangeImage(c.Request.Context(), actor(c), ids[0], ids[1], ids[2], usecase.ImagePatch{MediaID: r.MediaID, Position: r.Position})
 	if err != nil {
 		managementHTTPError(c, err)
 		return

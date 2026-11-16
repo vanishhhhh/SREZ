@@ -20,24 +20,25 @@ func NewUsers(db *sqlx.DB) *Users {
 }
 
 type userRow struct {
-	ID           int64     `db:"id"`
-	Email        string    `db:"email"`
-	Username     string    `db:"username"`
-	DisplayName  string    `db:"display_name"`
-	PasswordHash string    `db:"password_hash"`
-	AvatarURL    string    `db:"avatar_url"`
-	CreatedAt    time.Time `db:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at"`
+	ID            int64         `db:"id"`
+	Email         string        `db:"email"`
+	Username      string        `db:"username"`
+	DisplayName   string        `db:"display_name"`
+	PasswordHash  string        `db:"password_hash"`
+	AvatarURL     string        `db:"avatar_url"`
+	AvatarMediaID sql.NullInt64 `db:"avatar_media_id"`
+	CreatedAt     time.Time     `db:"created_at"`
+	UpdatedAt     time.Time     `db:"updated_at"`
 }
 
 func (r userRow) user() (*entities.User, error) {
 	return entities.RestoreUser(entities.UserState{
 		ID: r.ID, Email: r.Email, Username: r.Username, DisplayName: r.DisplayName,
-		PasswordHash: r.PasswordHash, AvatarURL: r.AvatarURL, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		PasswordHash: r.PasswordHash, AvatarURL: r.AvatarURL, AvatarMediaID: r.AvatarMediaID.Int64, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	})
 }
 
-const userColumns = "id, email, username, display_name, password_hash, avatar_url, created_at, updated_at"
+const userColumns = "id, email, username, display_name, password_hash, avatar_url, avatar_media_id, created_at, updated_at"
 
 func (s *Users) List(ctx context.Context) ([]entities.User, error) {
 	var rows []userRow

@@ -32,6 +32,7 @@ type VariantPatch struct {
 }
 type ImagePatch struct {
 	URL      *string
+	MediaID  *int64
 	Position *int
 }
 
@@ -358,10 +359,13 @@ func (m *Management) ChangeImage(ctx context.Context, uid, productID, colorID, i
 		if err != nil {
 			return err
 		}
-		if patch.URL == nil && patch.Position == nil {
+		if patch.URL == nil && patch.Position == nil && patch.MediaID == nil {
 			return entities.ErrInvalidValue
 		}
 		image := images[index]
+		if patch.MediaID != nil && (*patch.MediaID <= 0 || image.MediaID() != *patch.MediaID) {
+			return ErrResourceHidden
+		}
 		if patch.URL != nil {
 			if err = image.ChangeURL(*patch.URL); err != nil {
 				return err
@@ -442,4 +446,22 @@ func (m *Management) ReorderImages(ctx context.Context, uid, productID, colorID 
 		return err
 	})
 	return result, err
+}
+
+// ConfirmManagedImage is idempotent: upload attaches exactly once. Assets cannot
+// be moved to another image, color, product or brand through this endpoint.
+func (m *Management) ConfirmManagedImage(ctx context.Context, uid, productID, colorID, mediaID int64, position *int) (*entities.ProductImage, error) {
+	images, e := m.ProductImages(ctx, uid, productID, colorID)
+	if e != nil {
+		return nil, e
+	}
+	for _, i := range images {
+		if i.MediaID() == mediaID && mediaID > 0 {
+			if position != nil {
+				return m.ChangeImage(ctx, uid, productID, colorID, i.ID(), ImagePatch{Position: position, MediaID: &mediaID})
+			}
+			return &i, nil
+		}
+	}
+	return nil, ErrResourceHidden
 }

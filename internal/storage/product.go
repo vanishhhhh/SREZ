@@ -143,10 +143,11 @@ func loadPublication(ctx context.Context, tx *sqlx.Tx, id int64, lock bool) (ent
 		return entities.ProductPublication{}, err
 	}
 	var images []struct {
-		ColorID int64  `db:"product_color_id"`
-		URL     string `db:"url"`
+		ColorID int64          `db:"product_color_id"`
+		URL     sql.NullString `db:"url"`
+		MediaID sql.NullInt64  `db:"media_id"`
 	}
-	if err = tx.SelectContext(ctx, &images, `SELECT i.product_color_id,i.url FROM product_color_images i JOIN product_colors c ON c.id=i.product_color_id WHERE c.product_id=$1 ORDER BY i.product_color_id,i.position`+imageLock, id); err != nil {
+	if err = tx.SelectContext(ctx, &images, `SELECT i.product_color_id,i.url,i.media_id FROM product_color_images i JOIN product_colors c ON c.id=i.product_color_id WHERE c.product_id=$1 ORDER BY i.product_color_id,i.position`+imageLock, id); err != nil {
 		return entities.ProductPublication{}, err
 	}
 	var variants []struct {
@@ -160,16 +161,16 @@ func loadPublication(ctx context.Context, tx *sqlx.Tx, id int64, lock bool) (ent
 		return entities.ProductPublication{}, err
 	}
 	publication := entities.ProductPublication{Colors: make([]entities.ProductColor, 0, len(colors)), Variants: make([]entities.ProductVariant, 0, len(variants))}
-	imageMap := map[int64][]string{}
+	imageMap := map[int64][]entities.ImageSource{}
 	for _, image := range images {
-		imageMap[image.ColorID] = append(imageMap[image.ColorID], image.URL)
+		imageMap[image.ColorID] = append(imageMap[image.ColorID], entities.ImageSource{URL: image.URL.String, MediaID: image.MediaID.Int64})
 	}
 	for _, c := range colors {
 		urls := imageMap[c.ID]
 		if urls == nil {
-			urls = []string{}
+			urls = []entities.ImageSource{}
 		}
-		color, err := entities.RestoreProductColor(entities.ProductColorState{ID: c.ID, ProductID: id, Color: c.Color, Images: urls})
+		color, err := entities.RestoreProductColor(entities.ProductColorState{ID: c.ID, ProductID: id, Color: c.Color, Sources: urls})
 		if err != nil {
 			return entities.ProductPublication{}, err
 		}

@@ -22,6 +22,8 @@ type brandRow struct {
 	Name            string               `db:"name"`
 	Slug            string               `db:"slug"`
 	Description     string               `db:"description"`
+	LogoMediaID     sql.NullInt64        `db:"logo_media_id"`
+	BannerMediaID   sql.NullInt64        `db:"banner_media_id"`
 	LogoURL         string               `db:"logo_url"`
 	BannerURL       string               `db:"banner_url"`
 	Email           string               `db:"contact_email"`
@@ -35,10 +37,10 @@ type brandRow struct {
 	UpdatedAt       time.Time            `db:"updated_at"`
 }
 
-const brandColumns = `id, name, slug, description, logo_url, banner_url, contact_email, telegram_url, website_url, accent_color, background_color, text_color, status, created_at, updated_at`
+const brandColumns = `id, name, slug, description, logo_url, banner_url, logo_media_id, banner_media_id, contact_email, telegram_url, website_url, accent_color, background_color, text_color, status, created_at, updated_at`
 
 func (r brandRow) brand() (*entities.Brand, error) {
-	return entities.RestoreBrand(entities.BrandState{ID: r.ID, Name: r.Name, Slug: r.Slug, Description: r.Description, LogoURL: r.LogoURL, BannerURL: r.BannerURL,
+	return entities.RestoreBrand(entities.BrandState{ID: r.ID, Name: r.Name, Slug: r.Slug, Description: r.Description, LogoURL: r.LogoURL, BannerURL: r.BannerURL, LogoMediaID: r.LogoMediaID.Int64, BannerMediaID: r.BannerMediaID.Int64,
 		Contacts:   entities.BrandContacts{Email: r.Email, TelegramURL: r.TelegramURL, WebsiteURL: r.WebsiteURL},
 		Appearance: entities.BrandAppearance{AccentColor: r.AccentColor, BackgroundColor: r.BackgroundColor, TextColor: r.TextColor}, Status: r.Status, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt})
 }

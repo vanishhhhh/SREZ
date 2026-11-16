@@ -13,6 +13,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/seed ./cmd/seed
 
 FROM scratch
 
+# Trust HTTPS endpoints when switching from local SeaweedFS to another S3 service.
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 COPY --from=build /out/server /server
 COPY --from=build /out/seed /seed
 

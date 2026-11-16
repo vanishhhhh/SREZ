@@ -12,6 +12,7 @@ type UserState struct {
 	Email, Username, DisplayName string
 	PasswordHash                 string `json:"-"`
 	AvatarURL                    string
+	AvatarMediaID                int64
 	CreatedAt, UpdatedAt         time.Time
 }
 
@@ -54,7 +55,7 @@ func validateUser(s UserState) error {
 	if strings.TrimSpace(s.PasswordHash) == "" {
 		return invalid("user.password_hash")
 	}
-	if !validURL(s.AvatarURL, true) {
+	if !validURL(s.AvatarURL, true) || s.AvatarMediaID < 0 || (s.AvatarMediaID > 0 && s.AvatarURL != "") {
 		return invalid("user.avatar_url")
 	}
 	if !validTimes(s.CreatedAt, s.UpdatedAt) {
@@ -72,6 +73,7 @@ func (u *User) ChangeDisplayName(name string, now time.Time) error {
 func (u *User) ChangeAvatar(url string, now time.Time) error {
 	s := u.state
 	s.AvatarURL = url
+	s.AvatarMediaID = 0
 	return u.change(s, now)
 }
 
@@ -98,3 +100,11 @@ func (u User) PasswordHash() string { return u.state.PasswordHash }
 func (u User) AvatarURL() string    { return u.state.AvatarURL }
 func (u User) CreatedAt() time.Time { return u.state.CreatedAt }
 func (u User) UpdatedAt() time.Time { return u.state.UpdatedAt }
+
+func (u User) AvatarMediaID() int64 { return u.state.AvatarMediaID }
+func (u *User) ChangeAvatarMedia(id int64, now time.Time) error {
+	s := u.state
+	s.AvatarURL = ""
+	s.AvatarMediaID = id
+	return u.change(s, now)
+}

@@ -156,7 +156,7 @@ func (t *cartTx) LockVariant(ctx context.Context, variantID int64) (*usecase.Car
 	}
 	var row cartProductRow
 	err = t.tx.GetContext(ctx, &row, `SELECT p.id AS product_id,p.brand_id,v.id AS variant_id,p.name,c.color,v.size,
- p.price_kopecks AS unit_price_kopecks,v.stock,COALESCE((SELECT url FROM product_color_images WHERE product_color_id=c.id ORDER BY position LIMIT 1),'') AS preview_image_url
+ p.price_kopecks AS unit_price_kopecks,v.stock,COALESCE((SELECT COALESCE(url,'/media/assets/'||media_id::text||'/content') AS url FROM product_color_images WHERE product_color_id=c.id ORDER BY position LIMIT 1),'') AS preview_image_url
  FROM product_variants v JOIN product_colors c ON c.id=v.product_color_id JOIN products p ON p.id=c.product_id JOIN brands b ON b.id=p.brand_id
  WHERE v.id=$1 AND p.id=$2 AND p.brand_id=$3 AND p.status='published' AND b.status='active' FOR UPDATE OF c,v`, variantID, ref.ProductID, ref.BrandID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -218,7 +218,7 @@ func cartLines(ctx context.Context, db sqlx.QueryerContext, uid int64) ([]usecas
  CASE WHEN b.id IS NOT NULL THEN v.size ELSE '' END AS size,
  CASE WHEN b.id IS NOT NULL THEN p.price_kopecks ELSE 0 END AS unit_price_kopecks,
  CASE WHEN b.id IS NOT NULL THEN v.stock ELSE 0 END AS stock,
- CASE WHEN b.id IS NOT NULL THEN COALESCE((SELECT url FROM product_color_images WHERE product_color_id=c.id ORDER BY position LIMIT 1),'') ELSE '' END AS preview_image_url
+ CASE WHEN b.id IS NOT NULL THEN COALESCE((SELECT COALESCE(url,'/media/assets/'||media_id::text||'/content') AS url FROM product_color_images WHERE product_color_id=c.id ORDER BY position LIMIT 1),'') ELSE '' END AS preview_image_url
  FROM cart_items ci LEFT JOIN product_variants v ON v.id=ci.product_variant_id
  LEFT JOIN product_colors c ON c.id=v.product_color_id
  LEFT JOIN products p ON p.id=c.product_id AND p.status='published'

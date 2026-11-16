@@ -107,7 +107,7 @@ func pvmAccount(t *testing.T, h *Handler, name string) (pvmHTTPClient, int64) {
 
 func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	h, _ := newPVMHTTP(t)
-	owner, _ := pvmAccount(t, h, "pvm_owner")
+	owner, ownerID := pvmAccount(t, h, "pvm_owner")
 	editor, editorID := pvmAccount(t, h, "pvm_editor")
 	outsider, _ := pvmAccount(t, h, "pvm_outsider")
 	invited, _ := pvmAccount(t, h, "pvm_invited")
@@ -130,8 +130,8 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	editor.call("POST", path+"/colors", `{"color":" bLaCk "}`, 409)
 	editor.call("PATCH", cp, `{"color":" "}`, 400)
 	editor.call("POST", cp+"/images", `{"url":"http://example.com/bad.jpg"}`, 400)
-	front := pvmDecode[managedImageResponse](t, editor.call("POST", cp+"/images", `{"url":"https://example.com/front.jpg","position":0}`, 201))
-	back := pvmDecode[managedImageResponse](t, owner.call("POST", cp+"/images", `{"url":"https://example.com/back.jpg","position":0}`, 201))
+	front := pvmLegacyImage(t, h, ownerID, product.ID, black.ID, "https://example.com/front.jpg", 0)
+	back := pvmLegacyImage(t, h, ownerID, product.ID, black.ID, "https://example.com/back.jpg", 0)
 	if front.ID <= 0 || back.ID == front.ID {
 		t.Fatal("image identity")
 	}
@@ -139,7 +139,7 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	if len(images) != 2 || images[0].ID != back.ID || images[1].ID != front.ID || images[1].Position != 1 {
 		t.Fatal("insertion order")
 	}
-	editor.call("POST", cp+"/images", `{"url":"https://example.com/front.jpg"}`, 409)
+	editor.call("POST", cp+"/images", `{"url":"https://example.com/front.jpg"}`, 400)
 	editor.call("POST", cp+"/images", `{"url":"https://example.com/new.jpg","position":9}`, 400)
 	order := fmt.Sprintf(`{"image_ids":[%d,%d]}`, front.ID, back.ID)
 	images = pvmDecode[[]managedImageResponse](t, editor.call("POST", cp+"/images/reorder", order, 200))
@@ -150,12 +150,12 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	editor.call("POST", cp+"/images/reorder", fmt.Sprintf(`{"image_ids":[%d]}`, front.ID), 400)
 	editor.call("POST", cp+"/images/reorder", fmt.Sprintf(`{"image_ids":[%d,9223372036854775807]}`, front.ID), 404)
 	fpath := fmt.Sprintf("%s/images/%d", cp, front.ID)
-	editor.call("PATCH", fpath, `{"url":"https://example.com/back.jpg","position":1}`, 409)
+	editor.call("PATCH", fpath, `{"url":"https://example.com/back.jpg","position":1}`, 400)
 	images = pvmDecode[[]managedImageResponse](t, owner.call("GET", cp+"/images", "", 200))
 	if images[0].ID != front.ID || images[0].URL != front.URL {
 		t.Fatal("failed patch changed order or URL")
 	}
-	changed := pvmDecode[managedImageResponse](t, editor.call("PATCH", fpath, `{"url":"https://example.com/front-v2.jpg","position":1}`, 200))
+	changed := pvmDecode[managedImageResponse](t, editor.call("PATCH", fpath, `{"position":1}`, 200))
 	if changed.ID != front.ID || changed.Position != 1 {
 		t.Fatal("move changed identity")
 	}
@@ -182,7 +182,7 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	otherColor := pvmDecode[managedColorResponse](t, owner.call("POST", otherPath+"/colors", `{"color":"White"}`, 201))
 	otherCP := fmt.Sprintf("%s/colors/%d", otherPath, otherColor.ID)
 	otherV := pvmDecode[managedVariantResponse](t, owner.call("POST", otherCP+"/variants", `{"size":"M","stock":1}`, 201))
-	otherImage := pvmDecode[managedImageResponse](t, owner.call("POST", otherCP+"/images", `{"url":"https://example.com/other.jpg"}`, 201))
+	otherImage := pvmLegacyImage(t, h, ownerID, other.ID, otherColor.ID, "https://example.com/other.jpg", 0)
 	owner.call("PATCH", fmt.Sprintf("%s/colors/%d", path, otherColor.ID), `{"color":"Stolen"}`, 404)
 	owner.call("PATCH", fmt.Sprintf("%s/variants/%d", cp, otherV.ID), `{"stock":10}`, 404)
 	owner.call("DELETE", fmt.Sprintf("%s/images/%d", cp, otherImage.ID), "", 404)
@@ -192,7 +192,7 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 		for _, r := range []struct{ method, path, body string }{
 			{"GET", path + "/colors", ""}, {"POST", path + "/colors", `{"color":"Denied"}`}, {"PATCH", cp, `{"color":"Denied"}`}, {"DELETE", cp, ""},
 			{"GET", cp + "/variants", ""}, {"POST", cp + "/variants", `{"size":"XL","stock":1}`}, {"PATCH", vpath, `{"stock":9}`}, {"DELETE", vpath, ""},
-			{"GET", cp + "/images", ""}, {"POST", cp + "/images", `{"url":"https://example.com/denied.jpg"}`}, {"PATCH", fpath, `{"position":0}`}, {"DELETE", fpath, ""},
+			{"GET", cp + "/images", ""}, {"POST", cp + "/images", `{"media_id":9223372036854775807}`}, {"PATCH", fpath, `{"position":0}`}, {"DELETE", fpath, ""},
 			{"POST", cp + "/images/reorder", order},
 		} {
 			client.call(r.method, r.path, r.body, 404)
@@ -201,7 +201,10 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	invited.call("POST", bpath+"/invitations/decline", `{}`, 200)
 	invited.call("GET", path+"/colors", "", 404)
 	editor.call("POST", path+"/publish", `{}`, 409) // brand is still draft
-	owner.call("PATCH", bpath, `{"description":"PVM brand description","logo_url":"https://example.com/logo.jpg"}`, 200)
+	if _, e := h.management.ChangeBrand(context.Background(), ownerID, brand.ID, usecase.BrandPatch{LogoURL: ptrLegacyURL("https://example.com/logo.jpg")}, "patch"); e != nil {
+		t.Fatal(e)
+	}
+	owner.call("PATCH", bpath, `{"description":"PVM brand description"}`, 200)
 	owner.call("POST", bpath+"/publish", `{}`, 200)
 	editor.call("POST", path+"/publish", `{}`, 200)
 	guest := pvmHTTPClient{t: t, h: h}
@@ -243,7 +246,7 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	editor.call("POST", path+"/hide", `{}`, 200)
 	white := pvmDecode[managedColorResponse](t, editor.call("POST", path+"/colors", `{"color":"White"}`, 201))
 	wcp := fmt.Sprintf("%s/colors/%d", path, white.ID)
-	editor.call("POST", wcp+"/images", `{"url":"https://example.com/white.jpg"}`, 201)
+	_ = pvmLegacyImage(t, h, ownerID, product.ID, white.ID, "https://example.com/white.jpg", 0)
 	editor.call("POST", wcp+"/variants", `{"size":"M","stock":1}`, 201)
 	editor.call("PATCH", wcp, `{"color":" black "}`, 409)
 	editor.call("PATCH", wcp, `{"color":"Ivory"}`, 200)
@@ -253,13 +256,26 @@ func TestPostgresHTTPProductVariantManagement(t *testing.T) {
 	guest.call("GET", path, "", 200)
 	// Capacity and deletion of incomplete data are allowed on a draft.
 	for i := 1; i < 10; i++ {
-		owner.call("POST", otherCP+"/images", fmt.Sprintf(`{"url":"https://example.com/extra-%d.jpg"}`, i), 201)
+		_ = pvmLegacyImage(t, h, ownerID, other.ID, otherColor.ID, fmt.Sprintf("https://example.com/extra-%d.jpg", i), i)
 	}
-	owner.call("POST", otherCP+"/images", `{"url":"https://example.com/too-many.jpg"}`, 409)
+	owner.call("POST", otherCP+"/images", `{"url":"https://example.com/too-many.jpg"}`, 400)
 	owner.call("DELETE", otherCP, "", 204)
 	owner.call("GET", otherCP+"/variants", "", 404)
 	owner.call("DELETE", fmt.Sprintf("%s/members/%d", bpath, editorID), "", 204)
 	editor.call("PATCH", vpath, `{"stock":99}`, 404) // old access JWT, current DB rights
 	editor.call("GET", cp+"/images", "", 404)
 	owner.call("GET", cp+"/variants", "", 200)
+}
+
+func ptrLegacyURL(v string) *string { return &v }
+
+// Seed an already-existing legacy image without opening the retired HTTP URL
+// writer. This keeps regression coverage for reading/reordering historic data.
+func pvmLegacyImage(t *testing.T, h *Handler, uid, product, color int64, url string, pos int) managedImageResponse {
+	t.Helper()
+	i, e := h.management.CreateImage(context.Background(), uid, product, color, url, &pos)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return managedImageDTO(*i)
 }
