@@ -1,0 +1,44 @@
+{
+  "name": "srez-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.node.json && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:e2e:auth": "playwright test e2e/auth.spec.ts",
+    "test:e2e:public": "playwright test --config playwright.public.config.ts",
+    "test:e2e:buyer": "playwright test e2e/buyer.spec.ts",
+    "test:e2e:recovery": "playwright test e2e/password-recovery.spec.ts",
+    "lint": "oxlint src e2e scripts *.ts --deny-warnings",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test:e2e:mvp": "playwright test e2e/wishlists.spec.ts e2e/seller.spec.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/manrope": "5.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "oxlint": "^1.94.0",
+    "prettier": "3.10.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

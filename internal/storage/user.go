@@ -20,25 +20,28 @@ func NewUsers(db *sqlx.DB) *Users {
 }
 
 type userRow struct {
-	ID            int64         `db:"id"`
-	Email         string        `db:"email"`
-	Username      string        `db:"username"`
-	DisplayName   string        `db:"display_name"`
-	PasswordHash  string        `db:"password_hash"`
-	AvatarURL     string        `db:"avatar_url"`
-	AvatarMediaID sql.NullInt64 `db:"avatar_media_id"`
-	CreatedAt     time.Time     `db:"created_at"`
-	UpdatedAt     time.Time     `db:"updated_at"`
+	ID                        int64         `db:"id"`
+	Email                     string        `db:"email"`
+	Username                  string        `db:"username"`
+	DisplayName               string        `db:"display_name"`
+	PasswordHash              string        `db:"password_hash"`
+	AvatarURL                 string        `db:"avatar_url"`
+	AvatarMediaID             sql.NullInt64 `db:"avatar_media_id"`
+	CreatedAt                 time.Time     `db:"created_at"`
+	UpdatedAt                 time.Time     `db:"updated_at"`
+	EmailVerifiedAt           *time.Time    `db:"email_verified_at"`
+	EmailVerificationRequired bool          `db:"email_verification_required"`
 }
 
 func (r userRow) user() (*entities.User, error) {
 	return entities.RestoreUser(entities.UserState{
 		ID: r.ID, Email: r.Email, Username: r.Username, DisplayName: r.DisplayName,
 		PasswordHash: r.PasswordHash, AvatarURL: r.AvatarURL, AvatarMediaID: r.AvatarMediaID.Int64, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		EmailVerifiedAt: r.EmailVerifiedAt, EmailVerificationRequired: r.EmailVerificationRequired,
 	})
 }
 
-const userColumns = "id, email, username, display_name, password_hash, avatar_url, avatar_media_id, created_at, updated_at"
+const userColumns = "id, email, username, display_name, password_hash, avatar_url, avatar_media_id, created_at, updated_at, email_verified_at, email_verification_required"
 
 func (s *Users) List(ctx context.Context) ([]entities.User, error) {
 	var rows []userRow

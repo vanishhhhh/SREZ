@@ -1,0 +1,7 @@
+# Frontend origin for this separate integration copy. Use compose.integration.yaml.
+services:
+  app:
+    environment:
+      SREZ_FRONTEND_BASE_URL: http://localhost:5174
+      SREZ_PUBLIC_ORIGIN: http://localhost:5174
+      SREZ_AUTH_LOCAL_HTTP: "true"

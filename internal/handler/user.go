@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -34,7 +35,13 @@ type publicUserResponse struct {
 
 type profileResponse struct {
 	publicUserResponse
-	Email string `json:"email"`
+	Email                     string     `json:"email"`
+	EmailVerifiedAt           *time.Time `json:"email_verified_at"`
+	EmailVerificationRequired bool       `json:"email_verification_required"`
+}
+
+func profileDTO(u entities.User) profileResponse {
+	return profileResponse{publicUserDTO(u), u.Email(), u.EmailVerifiedAt(), u.EmailVerificationRequired()}
 }
 
 func publicUserDTO(user entities.User) publicUserResponse {

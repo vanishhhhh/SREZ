@@ -67,7 +67,7 @@ func (mockUserRepository) Delete(_ context.Context, id int64) (bool, error) {
 }
 
 const publicMockUserJSON = `{"id":1,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
-const profileMockUserJSON = `{"id":1,"email":"demo@example.com","username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
+const profileMockUserJSON = `{"id":1,"email":"demo@example.com","email_verified_at":null,"email_verification_required":false,"username":"demo_user","display_name":"Тестовый пользователь","avatar_url":"https://example.com/users/1/avatar.png"}`
 const createMockUserJSON = `{"email":"roman@example.com","username":"roman_1","display_name":" Роман "}`
 
 func TestUserEndpoints(t *testing.T) {

@@ -1,0 +1,478 @@
+{
+  "version": 1,
+  "assetSource": "Built-in image_gen; original AI generated demonstration product photography. No real brands or commercial inventory implied.",
+  "brands": [
+    {
+      "key": "kontur",
+      "name": "КОНТУР",
+      "description": "Архитектура повседневности: плотный хлопок, графичные силуэты и спокойные оттенки.",
+      "accent": "#252525",
+      "background": "#e7e2d9",
+      "mark": "К"
+    },
+    {
+      "key": "polus",
+      "name": "ПОЛЮС",
+      "description": "Одежда для прохладного города. Технические ткани, защита от ветра и свобода движения.",
+      "accent": "#38554b",
+      "background": "#dbe1db",
+      "mark": "П"
+    },
+    {
+      "key": "smena",
+      "name": "СМЕНА",
+      "description": "Цвет и энергия улиц. Свободный деним, выразительный трикотаж и вещи для своего ритма.",
+      "accent": "#264fa1",
+      "background": "#dce3f0",
+      "mark": "С"
+    },
+    {
+      "key": "osnova",
+      "name": "ОСНОВА",
+      "description": "Продуманные базовые вещи: тактильные материалы, точный крой и чистые детали.",
+      "accent": "#765c46",
+      "background": "#ece3d4",
+      "mark": "О"
+    },
+    {
+      "key": "raion",
+      "name": "РАЙОН",
+      "description": "От двора до центра. Функциональные аксессуары, удобная обувь и детали с характером.",
+      "accent": "#a74730",
+      "background": "#ead8cf",
+      "mark": "Р"
+    }
+  ],
+  "products": [
+    {
+      "key": "tee-plane",
+      "brand": "kontur",
+      "category": "tshirt",
+      "name": "Футболка Плоскость",
+      "price_kopecks": 290000,
+      "color": "Молочный",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Плотная футболка свободного кроя с широким воротом и спущенным плечом.",
+      "image": "images/tee-plane.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: chalk ivory heavyweight oversized cotton T-shirt, dropped shoulders, boxy fit, wide ribbed crew neck, blank without graphics. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "tee-wave",
+      "brand": "smena",
+      "category": "tshirt",
+      "name": "Футболка Волна",
+      "price_kopecks": 340000,
+      "color": "Кобальт",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Яркая футболка с нагрудным карманом. Мягкий хлопок и просторный силуэт.",
+      "image": "images/tee-wave.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: saturated cobalt blue cotton boxy short-sleeve T-shirt with a single sewn chest pocket and small ribbed crew neck. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "tee-signal",
+      "brand": "raion",
+      "category": "tshirt",
+      "name": "Футболка Сигнал",
+      "price_kopecks": 390000,
+      "color": "Графит",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Вываренный хлопок и абстрактная графика. Фактурная футболка для многослойных образов.",
+      "image": "images/tee-signal.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: washed charcoal oversized short-sleeve T-shirt with one tasteful cream abstract geometric circular screenprint on the front, distressed pigment dye, no lettering. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "hoodie-fog",
+      "brand": "polus",
+      "category": "hoodie",
+      "name": "Зип-худи Туман",
+      "price_kopecks": 790000,
+      "color": "Серый меланж",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 80%",
+        "Полиэстер 20%"
+      ],
+      "description": "Плотное худи на металлической молнии с капюшоном и двумя карманами.",
+      "image": "images/hoodie-fog.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: heather ash-grey heavyweight zip-up cotton hoodie, full silver zipper, two split kangaroo pockets, roomy hood, dropped shoulders. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "hoodie-forest",
+      "brand": "kontur",
+      "category": "hoodie",
+      "name": "Худи Хвоя",
+      "price_kopecks": 690000,
+      "color": "Хвойный",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Худи глубокого зелёного оттенка. Объёмный капюшон, карман-кенгуру и плотный футер.",
+      "image": "images/hoodie-forest.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: deep forest green heavyweight pullover hoodie, large sculptural hood, kangaroo pocket, wide ribbed hem, no drawstrings. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "sweat-layer",
+      "brand": "osnova",
+      "category": "hoodie",
+      "name": "Свитшот Слой",
+      "price_kopecks": 590000,
+      "color": "Какао",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 90%",
+        "Полиэстер 10%"
+      ],
+      "description": "Свитшот без капюшона с мягкой изнанкой. Свободная посадка и выразительные манжеты.",
+      "image": "images/sweat-layer.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: cocoa brown cotton crewneck sweatshirt without hood, raglan sleeves, thick ribbed cuffs and hem, subtly worn texture. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "cargo-route",
+      "brand": "raion",
+      "category": "pants",
+      "name": "Карго Маршрут",
+      "price_kopecks": 890000,
+      "color": "Чёрный",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 98%",
+        "Эластан 2%"
+      ],
+      "description": "Прямые карго с объёмными боковыми карманами и регулируемым низом.",
+      "image": "images/cargo-route.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: black straight-leg cargo trousers with two large three-dimensional thigh flap pockets, adjustable drawcord hems, technical cotton fabric, full legs visible. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "jeans-flow",
+      "brand": "smena",
+      "category": "pants",
+      "name": "Джинсы Поток",
+      "price_kopecks": 990000,
+      "color": "Индиго",
+      "sizes": [
+        "26",
+        "28",
+        "30",
+        "32",
+        "34"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Широкий деним с мягкой стиркой, контрастной строчкой и классическими пятью карманами.",
+      "image": "images/jeans-flow.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: washed medium indigo wide-leg denim jeans, authentic faded whiskers, contrast ochre stitching, classic five-pocket construction, full length. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "pants-axis",
+      "brand": "osnova",
+      "category": "pants",
+      "name": "Брюки Ось",
+      "price_kopecks": 740000,
+      "color": "Песочный",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 65%",
+        "Полиэстер 35%"
+      ],
+      "description": "Свободные брюки с защипами. Чистая линия и плотная ткань, которая держит форму.",
+      "image": "images/pants-axis.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: warm stone beige wide tailored trousers, double pleats, clean waistband with button, relaxed straight legs, full length. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "bomber-course",
+      "brand": "polus",
+      "category": "outerwear",
+      "name": "Бомбер Курс",
+      "price_kopecks": 1490000,
+      "color": "Олива",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Нейлон 100%",
+        "Подкладка: полиэстер"
+      ],
+      "description": "Короткий бомбер с рельефными манжетами, металлической молнией и карманом на рукаве.",
+      "image": "images/bomber-course.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: olive green nylon MA-1 bomber jacket, ribbed collar and cuffs, brushed metal zip, zip utility pocket on left sleeve, padded realistic fabric. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "shell-vector",
+      "brand": "polus",
+      "category": "outerwear",
+      "name": "Куртка Вектор",
+      "price_kopecks": 1890000,
+      "color": "Чёрный",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Полиамид 100%"
+      ],
+      "description": "Лёгкая техническая куртка с высоким воротом, регулируемым капюшоном и закрытыми молниями.",
+      "image": "images/shell-vector.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: matte black technical hooded shell jacket, waterproof seam details, asymmetric angled chest zipper pocket, high collar, subtle light grey zipper pulls. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "jacket-workshop",
+      "brand": "kontur",
+      "category": "outerwear",
+      "name": "Куртка Мастерская",
+      "price_kopecks": 1290000,
+      "color": "Песочный",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Рабочая куртка из плотного канваса с тремя накладными карманами и крупными пуговицами.",
+      "image": "images/jacket-workshop.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: sand tan cotton canvas chore jacket, contrasting dark brown large buttons, three patch pockets, simple pointed collar, lived-in fabric texture. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "sneakers-orbit",
+      "brand": "raion",
+      "category": "footwear",
+      "name": "Кеды Орбита",
+      "price_kopecks": 1190000,
+      "color": "Молочный",
+      "sizes": [
+        "37",
+        "38",
+        "39",
+        "40",
+        "41",
+        "42",
+        "43",
+        "44"
+      ],
+      "materials": [
+        "Кожа",
+        "Резиновая подошва"
+      ],
+      "description": "Низкие кеды из гладкой кожи с мягкой стелькой и рельефной подошвой.",
+      "image": "images/sneakers-orbit.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: pair of ivory off-white leather low-top sneakers, sculptural cream rubber soles, flat cotton laces, entirely unbranded original design, three-quarter front angle. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "derby-block",
+      "brand": "osnova",
+      "category": "footwear",
+      "name": "Дерби Блок",
+      "price_kopecks": 1390000,
+      "color": "Чёрный",
+      "sizes": [
+        "37",
+        "38",
+        "39",
+        "40",
+        "41",
+        "42",
+        "43",
+        "44"
+      ],
+      "materials": [
+        "Натуральная кожа",
+        "Резиновая подошва"
+      ],
+      "description": "Кожаные дерби на массивной подошве. Округлый нос и открытая шнуровка.",
+      "image": "images/derby-block.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: pair of polished black leather chunky derby lace-up shoes, rounded toes, thick lugged rubber soles, four eyelets, three-quarter angle. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "boots-edge",
+      "brand": "polus",
+      "category": "footwear",
+      "name": "Ботинки Кромка",
+      "price_kopecks": 1590000,
+      "color": "Тауп",
+      "sizes": [
+        "37",
+        "38",
+        "39",
+        "40",
+        "41",
+        "42",
+        "43",
+        "44"
+      ],
+      "materials": [
+        "Замша",
+        "Резиновая подошва"
+      ],
+      "description": "Высокие замшевые ботинки с мягким кантом и цепкой подошвой для прохладного сезона.",
+      "image": "images/boots-edge.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: pair of taupe sand suede high-top lace-up boots, padded ankle collar, subtle hiking eyelets, dark gum lug soles, unbranded modern silhouette, three-quarter angle. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "bag-district",
+      "brand": "raion",
+      "category": "accessories",
+      "name": "Сумка Квартал",
+      "price_kopecks": 490000,
+      "color": "Чёрный",
+      "sizes": [
+        "One Size"
+      ],
+      "materials": [
+        "Нейлон 100%"
+      ],
+      "description": "Компактная сумка через плечо с регулируемым ремнём, внешним карманом и мягкой спинкой.",
+      "image": "images/bag-district.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: black ripstop nylon rectangular crossbody shoulder bag, wide adjustable webbing strap arranged neatly around it, silver zip, exterior front pocket, top-down still life. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "beanie-spark",
+      "brand": "smena",
+      "category": "accessories",
+      "name": "Шапка Искра",
+      "price_kopecks": 240000,
+      "color": "Терракота",
+      "sizes": [
+        "One Size"
+      ],
+      "materials": [
+        "Шерсть 50%",
+        "Акрил 50%"
+      ],
+      "description": "Шапка в крупный рубчик с широким отворотом. Тёплый акцент для холодного города.",
+      "image": "images/beanie-spark.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: burnt orange terracotta chunky rib-knit fisherman beanie, broad folded cuff, wool texture clearly visible, no patch or logo, sculptural top-down still life. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "cap-park",
+      "brand": "kontur",
+      "category": "accessories",
+      "name": "Кепка Парк",
+      "price_kopecks": 260000,
+      "color": "Олива",
+      "sizes": [
+        "One Size"
+      ],
+      "materials": [
+        "Хлопок 100%"
+      ],
+      "description": "Шестипанельная кепка из вываренного хлопка с регулируемой застёжкой.",
+      "image": "images/cap-park.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: washed olive green six-panel cotton baseball cap, curved brim, tonal embroidery-free surface, stitched ventilation eyelets, three-quarter front view. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "socks-rhythm",
+      "brand": "smena",
+      "category": "other",
+      "name": "Носки Ритм",
+      "price_kopecks": 120000,
+      "color": "Белый с кобальтом",
+      "sizes": [
+        "36–40",
+        "41–45"
+      ],
+      "materials": [
+        "Хлопок 80%",
+        "Полиамид 17%",
+        "Эластан 3%"
+      ],
+      "description": "Высокие хлопковые носки с контрастными полосами и уплотнённой пяткой.",
+      "image": "images/socks-rhythm.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: pair of white cotton crew socks with two cobalt blue athletic stripes near the ribbed cuffs, neatly arranged with both heel and toe shapes visible. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "throw-grid",
+      "brand": "osnova",
+      "category": "other",
+      "name": "Плед Клетка",
+      "price_kopecks": 590000,
+      "color": "Песочный с графитом",
+      "sizes": [
+        "130 × 180 см"
+      ],
+      "materials": [
+        "Шерсть 60%",
+        "Акрил 40%"
+      ],
+      "description": "Мягкий шерстяной плед с крупной клеткой и бахромой. Для дома, поездок и прохладных вечеров.",
+      "image": "images/throw-grid.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: folded sand beige and charcoal large-windowpane checked wool throw blanket with soft fringed edges, luxurious woven texture, neat folded still life showing pattern. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    },
+    {
+      "key": "sleeve-signal",
+      "brand": "raion",
+      "category": "other",
+      "name": "Чехол Сигнал",
+      "price_kopecks": 390000,
+      "color": "Графит",
+      "sizes": [
+        "13–14 дюймов",
+        "15–16 дюймов"
+      ],
+      "materials": [
+        "Нейлон 100%",
+        "Мягкая подкладка"
+      ],
+      "description": "Стёганый чехол для ноутбука с защитой углов и крупной молнией.",
+      "image": "images/sleeve-signal.png",
+      "prompt": "Use case: product-mockup. One premium streetwear e-commerce product photograph, portrait 3:4. Subject: charcoal grey padded quilted laptop sleeve case, rectangular shape with softly rounded corners, black zipper and small orange woven pull tab, no laptop present. A single catalog item (a pair counts as one item), whole item visible centered with clean margin on a pale warm-grey seamless studio surface. Authentic fabric/material texture and slight natural folds, soft daylight from upper left, realistic gentle shadows. Professional photorealistic fashion still life, neutral color grading. No people, hangers, extra props, collage, text, brand logos or watermark. Unique product-specific photograph, not a placeholder. For clothes use front flat-lay view; for footwear and shaped accessories use the specified angle."
+    }
+  ]
+}

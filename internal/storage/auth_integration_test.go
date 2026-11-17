@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"srez/internal/security"
-	"srez/internal/storage"
+	"srez/internal/testsupport"
 	"srez/internal/usecase"
 	"srez/migrations"
 )
@@ -18,9 +18,8 @@ func TestPostgresAuth(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
 	ctx := context.Background()
-	repo := storage.NewAuth(db)
 	tokens, _ := security.NewTokens([]byte(strings.Repeat("a", 32)), []byte(strings.Repeat("b", 32)), "srez", "api")
-	auth := usecase.NewAuth(repo, security.NewPasswords(2), tokens)
+	auth, verification, inbox := testsupport.NewAuth(db, security.NewPasswords(2), tokens)
 	pw := "long enough password 123"
 	u, e := auth.Register(ctx, "Alice@EXAMPLE.com", "ALICE", "Alice", pw)
 	if e != nil {
@@ -42,6 +41,9 @@ func TestPostgresAuth(t *testing.T) {
 		if _, e = auth.Login(ctx, key, "incorrect"); !errors.Is(e, usecase.ErrAuth) {
 			t.Fatal(e)
 		}
+	}
+	if e = inbox.Verify(ctx, verification, "alice@example.com"); e != nil {
+		t.Fatal(e)
 	}
 	login, e := auth.Login(ctx, "ALICE", pw)
 	if e != nil {
@@ -130,9 +132,8 @@ func TestPostgresRegistrationRace(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
 	ctx := context.Background()
-	repo := storage.NewAuth(db)
 	tokens, _ := security.NewTokens([]byte(strings.Repeat("a", 32)), []byte(strings.Repeat("b", 32)), "srez", "api")
-	auth := usecase.NewAuth(repo, security.NewPasswords(2), tokens)
+	auth, _, _ := testsupport.NewAuth(db, security.NewPasswords(2), tokens)
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
 	for range 2 {
@@ -165,9 +166,12 @@ func TestPostgresExpiredAndSessionCSRF(t *testing.T) {
 	migrate(t, db)
 	ctx := context.Background()
 	tokens, _ := security.NewTokens([]byte(strings.Repeat("a", 32)), []byte(strings.Repeat("b", 32)), "srez", "api")
-	auth := usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(1), tokens)
+	auth, verification, inbox := testsupport.NewAuth(db, security.NewPasswords(1), tokens)
 	pw := "a secure long password"
 	if _, e := auth.Register(ctx, "expiry@example.com", "expiry", "Expiry", pw); e != nil {
+		t.Fatal(e)
+	}
+	if e := inbox.Verify(ctx, verification, "expiry@example.com"); e != nil {
 		t.Fatal(e)
 	}
 	one, e := auth.Login(ctx, "expiry", pw)

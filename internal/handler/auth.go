@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"mime"
 	"net/http"
 	"strings"
@@ -35,6 +36,10 @@ func (h *Handler) EnableAuth(a *usecase.Auth, t *security.Tokens, cfg config.Aut
 	x := &authHTTP{auth: a, tokens: t, cfg: cfg, attempts: map[string]attempt{}}
 	h.router.POST("/auth/register", x.source, x.limit, x.register)
 	h.router.POST("/auth/login", x.source, x.limit, x.login)
+	h.router.POST("/auth/verify-email", x.source, x.limit, x.verifyEmail)
+	h.router.POST("/auth/resend-verification", x.source, x.limit, x.resendVerification)
+	h.router.POST("/auth/forgot-password", x.source, x.limit, x.forgotPassword)
+	h.router.POST("/auth/reset-password", x.source, x.limit, x.resetPassword)
 	h.router.GET("/auth/csrf", x.csrfSource, x.csrf)
 	h.router.POST("/auth/refresh", x.source, x.refresh)
 	h.router.POST("/auth/logout", x.source, x.logout)
@@ -44,6 +49,7 @@ func (h *Handler) EnableAuth(a *usecase.Auth, t *security.Tokens, cfg config.Aut
 	h.shoppingRoutes(x)
 	h.orderRoutes(x)
 	h.mediaRoutes(x)
+	h.wishlistRoutes(x)
 	return nil
 }
 func (x *authHTTP) source(c *gin.Context) {
@@ -105,6 +111,26 @@ func authError(c *gin.Context, err error) {
 	status := 500
 	message := "authentication operation failed"
 	switch {
+	case errors.Is(err, usecase.ErrResetToken):
+		status, message = 400, "invalid or expired reset link"
+	case errors.Is(err, usecase.ErrRecoveryRate):
+		status, message = 429, "password recovery rate limited"
+		c.Header("Retry-After", "60")
+	case errors.Is(err, usecase.ErrRecoveryUnavailable):
+		status, message = 503, "password recovery unavailable"
+	case errors.Is(err, usecase.ErrEmailUnverified):
+		status = 403
+		message = "email verification required"
+	case errors.Is(err, usecase.ErrVerificationToken):
+		status = 400
+		message = "invalid or expired verification link"
+	case errors.Is(err, usecase.ErrVerificationRate):
+		status = 429
+		message = "email verification rate limited"
+		c.Header("Retry-After", "60")
+	case errors.Is(err, usecase.ErrVerificationUnavailable):
+		status = 503
+		message = "email verification unavailable"
 	case errors.Is(err, usecase.ErrAuth), errors.Is(err, security.ErrInvalid):
 		status = 401
 		message = "invalid credentials"
@@ -140,12 +166,51 @@ func (x *authHTTP) register(c *gin.Context) {
 		c.JSON(400, errorResponse{"password must contain at least 12 characters and at most 1024 bytes"})
 		return
 	}
-	u, e := x.auth.Register(c.Request.Context(), r.Email, r.Username, r.DisplayName, r.Password)
-	if e != nil {
+	u, e := x.auth.RegisterFrom(c.Request.Context(), r.Email, r.Username, r.DisplayName, r.Password, c.ClientIP())
+	if e != nil && !(u != nil && errors.Is(e, usecase.ErrMailDelivery)) {
 		authError(c, e)
 		return
 	}
-	c.JSON(201, publicUserDTO(*u))
+	delivery := "sent"
+	if e != nil {
+		delivery = "unavailable"
+		log.Print("verification_delivery_failed")
+	}
+	c.JSON(201, struct {
+		publicUserResponse
+		Required bool   `json:"email_verification_required"`
+		Delivery string `json:"email_delivery_status"`
+		Retry    int    `json:"resend_after_seconds"`
+	}{publicUserDTO(*u), true, delivery, 60})
+}
+func (x *authHTTP) verifyEmail(c *gin.Context) {
+	c.Header("Referrer-Policy", "no-referrer")
+	var r struct {
+		Token string `json:"token"`
+	}
+	if !decodeUserRequest(c, &r) {
+		return
+	}
+	if e := x.auth.VerifyEmail(c.Request.Context(), r.Token); e != nil {
+		authError(c, e)
+		return
+	}
+	c.JSON(200, gin.H{"message": "email verified"})
+}
+func (x *authHTTP) resendVerification(c *gin.Context) {
+	c.Header("Referrer-Policy", "no-referrer")
+	var r struct {
+		Identifier string `json:"identifier"`
+	}
+	if !decodeUserRequest(c, &r) {
+		return
+	}
+	if e := x.auth.ResendVerification(c.Request.Context(), r.Identifier, c.ClientIP()); e != nil {
+		authError(c, e)
+		return
+	}
+	// Request accepted is deliberately NOT a claim that SMTP delivered a message.
+	c.JSON(202, gin.H{"message": "If this account needs verification, a message will be attempted. Check your inbox or retry later.", "resend_after_seconds": 60})
 }
 func (x *authHTTP) login(c *gin.Context) {
 	var r struct {
@@ -214,9 +279,13 @@ func (x *authHTTP) bearer(c *gin.Context) {
 		c.AbortWithStatusJSON(401, errorResponse{"bearer token required"})
 		return
 	}
-	id, e := x.tokens.Verify(parts[1])
+	id, e := x.auth.Authenticate(c.Request.Context(), parts[1])
 	if e != nil {
-		c.AbortWithStatusJSON(401, errorResponse{"invalid access token"})
+		if errors.Is(e, usecase.ErrAuth) {
+			c.AbortWithStatusJSON(401, errorResponse{"invalid access token"})
+		} else {
+			c.AbortWithStatusJSON(503, errorResponse{"authentication unavailable"})
+		}
 		return
 	}
 	c.Set("auth_user_id", id)
@@ -233,7 +302,7 @@ func (h *Handler) profile(c *gin.Context) {
 		}
 		return
 	}
-	c.JSON(200, profileResponse{publicUserDTO(*u), u.Email()})
+	c.JSON(200, profileDTO(*u))
 }
 func (h *Handler) patchProfile(c *gin.Context) {
 	var r updateUserRequest
@@ -253,5 +322,5 @@ func (h *Handler) patchProfile(c *gin.Context) {
 		}
 		return
 	}
-	c.JSON(200, profileResponse{publicUserDTO(*u), u.Email()})
+	c.JSON(200, profileDTO(*u))
 }

@@ -20,8 +20,9 @@ func (s *authSpy) FindLogin(context.Context, string) (*entities.User, error) {
 	s.calls++
 	return nil, nil
 }
-func (s *authSpy) Rehash(context.Context, int64, string, string) error { return nil }
-func (s *authSpy) CreateSession(context.Context, entities.AuthSession, []byte) error {
+func (s *authSpy) Rehash(context.Context, int64, string, string) error        { return nil }
+func (s *authSpy) AccessSession(context.Context, int64, string) (bool, error) { return true, nil }
+func (s *authSpy) CreateSession(context.Context, entities.AuthSession, []byte, string) error {
 	s.calls++
 	return nil
 }

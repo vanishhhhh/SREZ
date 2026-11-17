@@ -14,6 +14,8 @@ type UserState struct {
 	AvatarURL                    string
 	AvatarMediaID                int64
 	CreatedAt, UpdatedAt         time.Time
+	EmailVerifiedAt              *time.Time
+	EmailVerificationRequired    bool
 }
 
 type User struct{ state UserState }
@@ -33,6 +35,10 @@ func RestoreUser(s UserState) (*User, error) {
 		return nil, invalid("user.id")
 	}
 	s.DisplayName = strings.TrimSpace(s.DisplayName)
+	if s.EmailVerifiedAt != nil {
+		v := *s.EmailVerifiedAt
+		s.EmailVerifiedAt = &v
+	}
 	if err := validateUser(s); err != nil {
 		return nil, err
 	}
@@ -40,6 +46,9 @@ func RestoreUser(s UserState) (*User, error) {
 }
 
 func validateUser(s UserState) error {
+	if s.EmailVerifiedAt != nil && (s.EmailVerifiedAt.Before(s.CreatedAt) || s.EmailVerifiedAt.After(s.UpdatedAt)) {
+		return invalid("user.email_verified_at")
+	}
 	if s.ID < 0 {
 		return invalid("user.id")
 	}
@@ -89,7 +98,7 @@ func (u *User) change(s UserState, now time.Time) error {
 	return nil
 }
 
-func (u User) State() UserState    { return u.state }
+func (u User) State() UserState    { s := u.state; s.EmailVerifiedAt = u.EmailVerifiedAt(); return s }
 func (u User) ID() int64           { return u.state.ID }
 func (u User) Email() string       { return u.state.Email }
 func (u User) Username() string    { return u.state.Username }
@@ -102,6 +111,17 @@ func (u User) CreatedAt() time.Time { return u.state.CreatedAt }
 func (u User) UpdatedAt() time.Time { return u.state.UpdatedAt }
 
 func (u User) AvatarMediaID() int64 { return u.state.AvatarMediaID }
+func (u User) EmailVerifiedAt() *time.Time {
+	if u.state.EmailVerifiedAt == nil {
+		return nil
+	}
+	v := *u.state.EmailVerifiedAt
+	return &v
+}
+func (u User) EmailVerificationRequired() bool { return u.state.EmailVerificationRequired }
+func (u User) CanAuthenticate() bool {
+	return !u.state.EmailVerificationRequired || u.state.EmailVerifiedAt != nil
+}
 func (u *User) ChangeAvatarMedia(id int64, now time.Time) error {
 	s := u.state
 	s.AvatarURL = ""

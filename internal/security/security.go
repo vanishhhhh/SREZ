@@ -131,20 +131,33 @@ func NewTokens(key, csrf []byte, issuer, audience string) (*Tokens, error) {
 	return &Tokens{append([]byte{}, key...), append([]byte{}, csrf...), issuer, audience}, nil
 }
 func (t *Tokens) Issue(uid int64, sid string) (string, error) {
-	now := time.Now().UTC()
+	return t.issueAt(uid, sid, time.Now().UTC())
+}
+func (t *Tokens) issueAt(uid int64, sid string, wall time.Time) (string, error) {
+	// NumericDate has second precision. A one-second issuance guard avoids
+	// freshly signed tokens becoming future-dated after a small VM clock step.
+	// BOTH timestamps move back: lifetime stays <=15m, expiry has no leeway and
+	// WithIssuedAt remains enabled in Verify.
+	now := wall.UTC().Truncate(time.Second).Add(-time.Second)
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{sid, jwt.RegisteredClaims{Issuer: t.issuer, Audience: jwt.ClaimStrings{t.audience}, Subject: strconv.FormatInt(uid, 10), IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)), ID: Random()}}).SignedString(t.key)
 }
 func (t *Tokens) Verify(raw string) (int64, error) {
+	uid, _, err := t.VerifyIdentity(raw)
+	return uid, err
+}
+
+// VerifyIdentity validates the signature/claims before exposing session identity.
+func (t *Tokens) VerifyIdentity(raw string) (int64, string, error) {
 	c := &Claims{}
 	_, err := jwt.ParseWithClaims(raw, c, func(token *jwt.Token) (any, error) { return t.key, nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithIssuer(t.issuer), jwt.WithAudience(t.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt())
 	if err != nil {
-		return 0, ErrInvalid
+		return 0, "", ErrInvalid
 	}
 	uid, e := strconv.ParseInt(c.Subject, 10, 64)
 	if e != nil || uid <= 0 || strconv.FormatInt(uid, 10) != c.Subject || !ValidRandom(c.Session) || !ValidRandom(c.ID) || c.IssuedAt == nil || c.ExpiresAt == nil || !c.ExpiresAt.After(c.IssuedAt.Time) || c.ExpiresAt.Sub(c.IssuedAt.Time) > 15*time.Minute {
-		return 0, ErrInvalid
+		return 0, "", ErrInvalid
 	}
-	return uid, nil
+	return uid, c.Session, nil
 }
 func (t *Tokens) CSRF(sid string) string {
 	mac := hmac.New(sha256.New, t.csrf)
