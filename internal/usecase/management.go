@@ -105,7 +105,7 @@ func (m *Management) ChangeBrand(ctx context.Context, uid, id int64, p BrandPatc
 		if b.Status() == entities.BrandSuspended {
 			return ErrForbidden
 		}
-		now := time.Now().UTC()
+		now := nondecreasingTime(time.Now().UTC(), b.UpdatedAt())
 		var e error
 		switch action {
 		case "publish":
@@ -180,6 +180,7 @@ func (m *Management) Invite(ctx context.Context, uid, id int64, username string)
 		if member == nil {
 			member, e = entities.NewEditorInvitation(target, b.ID(), uid, now)
 		} else {
+			now = nondecreasingTime(now, member.UpdatedAt())
 			e = member.Reinvite(uid, now)
 		}
 		if e != nil {
@@ -207,9 +208,9 @@ func (m *Management) Invitation(ctx context.Context, uid, id int64, accept bool)
 			return ErrResourceHidden
 		}
 		if accept {
-			e = member.Accept(time.Now().UTC())
+			e = member.Accept(nondecreasingTime(time.Now().UTC(), member.UpdatedAt()))
 		} else {
-			e = member.Decline(time.Now().UTC())
+			e = member.Decline(nondecreasingTime(time.Now().UTC(), member.UpdatedAt()))
 		}
 		if e != nil {
 			return e
@@ -234,7 +235,7 @@ func (m *Management) Revoke(ctx context.Context, uid, id, target int64) error {
 		if member.Role() == entities.BrandOwner {
 			return ErrForbidden
 		}
-		if e = member.Revoke(time.Now().UTC()); e != nil {
+		if e = member.Revoke(nondecreasingTime(time.Now().UTC(), member.UpdatedAt())); e != nil {
 			return e
 		}
 		return tx.SaveMembership(ctx, *member)
@@ -284,7 +285,7 @@ func (m *Management) ChangeProduct(ctx context.Context, uid, id int64, p Product
 		if product == nil || product.BrandID() != b.ID() {
 			return ErrResourceHidden
 		}
-		now := time.Now().UTC()
+		now := nondecreasingTime(time.Now().UTC(), product.UpdatedAt())
 		switch action {
 		case "publish":
 			if b.Status() != entities.BrandActive {

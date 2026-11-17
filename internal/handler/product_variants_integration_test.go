@@ -92,7 +92,7 @@ func newPVMHTTP(t *testing.T) (*Handler, *sqlx.DB) {
 	brands := storage.NewBrands(db)
 	h := New(usecase.NewUsers(storage.NewUsers(db)), usecase.NewBrands(brands), usecase.NewProducts(storage.NewProducts(db), brands))
 	h.SetManagement(usecase.NewManagement(storage.NewManagement(db)))
-	if err = h.EnableAuth(usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(2), tokens), tokens, config.Auth{Origin: "http://127.0.0.1:8080", LocalHTTP: true, Attempts: 50}); err != nil {
+	if err = h.EnableAuth(authWithTestInbox(t, h, db, security.NewPasswords(2), tokens), tokens, config.Auth{Origin: "http://127.0.0.1:8080", LocalHTTP: true, Attempts: 50}); err != nil {
 		t.Fatal(err)
 	}
 	return h, db
@@ -101,6 +101,7 @@ func pvmAccount(t *testing.T, h *Handler, name string) (pvmHTTPClient, int64) {
 	t.Helper()
 	guest := pvmHTTPClient{t: t, h: h}
 	user := pvmDecode[publicUserResponse](t, guest.call("POST", "/auth/register", fmt.Sprintf(`{"email":"%s@example.com","username":"%s","display_name":"%s","password":"local PVM test password 123"}`, name, name, name), 201))
+	verifyTestAccount(t, h, name+"@example.com")
 	login := pvmDecode[usecase.AuthResult](t, guest.call("POST", "/auth/login", fmt.Sprintf(`{"identifier":"%s","password":"local PVM test password 123"}`, name), 200))
 	return pvmHTTPClient{t: t, h: h, token: login.AccessToken}, user.ID
 }

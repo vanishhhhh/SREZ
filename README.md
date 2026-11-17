@@ -1,313 +1,214 @@
 # SREZ
 
-SREZ — учебный командный backend-проект маркетплейса независимых streetwear-брендов. Он объединяет бренды и их товары в одном каталоге: покупатели могут знакомиться с брендами и смотреть карточки одежды с цветами, фотографиями, размерами и остатками. Для брендов проект предусматривает развитие сценариев управления ассортиментом.
+Локальный MVP маркетплейса независимых streetwear-брендов. Go API, PostgreSQL и React работают с настоящими товарами, вариантами, изображениями и аккаунтами. Интерфейс сохраняет стиль SREZ; фиктивный каталог вместо API не используется.
 
-Сейчас реализован HTTP API без frontend. Стек: **Go, Gin, PostgreSQL 16, sqlx, AWS SDK v2, SeaweedFS, Docker Compose**.
+**Заказ сейчас — неоплаченный резерв на 15 минут. Оплаты, доставки и обработки оплаченных заказов пока нет.** Публикация исходников в GitHub не означает deployment приложения.
 
-## Текущее состояние
+## Возможности
 
-Реализованы:
+- Регистрация, подтверждение email, вход по email/username, профиль и managed avatar.
+- Восстановление пароля через одноразовую ссылку; отзыв всех прежних сессий и access JWT.
+- Каталог с фильтрами category/brand/size/color/price, сортировкой и пагинацией.
+- Товар: галерея, конкретные цвета/размеры/остатки, материалы, бренд.
+- Избранное, корзина выбранных вариантов, серверные цены и суммы.
+- Неоплаченные резервы, история, отмена и автоматическое освобождение остатков.
+- Несколько вишлистов: порядок, предпочтительный вариант, публичные ссылки, ротация/отзыв.
+- Студия бренда: owner/editor, приглашения, публикация, PVM и загрузка изображений.
+- Приватный SeaweedFS; браузер работает с файлами через Go backend.
+- Mailpit для настоящего локального SMTP; письма не уходят в реальный почтовый ящик.
 
-- регистрация с Argon2id, login, HS256 access JWT и серверные refresh-сессии;
-- CSRF-защита, refresh rotation/replay detection и управление собственным профилем;
-- публичный каталог активных брендов и опубликованных товаров;
-- фильтрация товаров по категории, бренду, цене, размеру и цвету, сортировка и пагинация;
-- карточки каталога с обложкой, названием и slug бренда, доступными цветами и размерами;
-- подробные карточки с цветами, упорядоченными фотографиями и вариантами размеров;
-- BrandMembership owner/editor, приглашения, отзыв прав и управление брендами;
-- защищённое создание/редактирование draft, публикация готовых товаров;
-- Product Variant Management: защищённый CRUD цветов, размеров/остатков и managed media-фотографий с сохранением legacy HTTPS записей, атомарная перестановка изображений;
-- избранное и авторизованная корзина: варианты, количество, актуальные цены и доступность;
-- транзакционное оформление единого заказа с товарами разных брендов и собственная история заказов со снимками позиций;
-- резерв товара под неоплаченный заказ на 15 минут; мгновенная отмена владельцем и автоматическое освобождение просроченного резерва;
-- версионируемые миграции при старте, отдельный повторяемый dev seed;
-- backend upload аватаров/логотипов/баннеров/фото с проверкой содержимого и лимитом до S3, приватная выдача и cleanup;
-- тесты домена, usecase и HTTP, интеграционные тесты PostgreSQL/SeaweedFS.
+## Стек и архитектура
 
-На следующих этапах: клиентское приложение, подтверждение электронной почты и восстановление доступа. Оплата, доставка, объединение гостевой корзины и обработка заказов брендами пока не реализованы.
+Go 1.27.2+, Gin, sqlx, PostgreSQL 16; React 19, TypeScript, Vite, React Router. JWT HS256 до 15 минут, Argon2id, opaque refresh sessions с абсолютным сроком 7 дней. Docker Compose, SeaweedFS, Mailpit. Проверки frontend: TypeScript, **Oxlint** (текущий lint проекта), Vitest и Playwright. Версии зависимостей закреплены go.mod/go.sum и package-lock.json.
 
-**Проект предназначен для локального обучения и разработки. Auth требует независимого AppSec-ревью перед публичным развёртыванием. Публикация исходников не означает готовность HTTP-сервера к production.**
+HTTP Handler валидирует DTO и вызывает usecase. Usecase выполняет сценарий и проверяет доменные правила. Storage содержит SQL и транзакции; entities не сериализуются напрямую. В main собираются зависимости. Auth остаётся единым; verification и recovery используют общий MailSender/SMTP, отдельные токены и SQL-таблицы.
 
-## Быстрый запуск через Docker Compose
-
-Нужен запущенный Docker Engine / Docker Desktop с Compose. На Apple Silicon образы собираются для arm64, принудительная эмуляция amd64 не требуется.
-
-```sh
-# Выполните копирование только если у вас ещё нет локального .env.
-cp .env.example .env
-# Два независимых случайных ключа; значения не выводятся в терминал.
-umask 077
-printf '\nSREZ_JWT_KEY=%s\nSREZ_CSRF_KEY=%s\n' "$(openssl rand -base64 32)" "$(openssl rand -base64 32)" >> .env
-printf '\nSREZ_S3_ACCESS_KEY=%s\nSREZ_S3_SECRET_KEY=%s\n' "$(openssl rand -hex 20)" "$(openssl rand -hex 32)" >> .env
-chmod 600 .env
-docker compose up --build -d
-curl -i http://127.0.0.1:8080/health
-curl -i http://127.0.0.1:8080/brands
-curl -i http://127.0.0.1:8080/products
+```text
+cmd/app/                 конфигурация и запуск Go API
+cmd/seed/                явный старый dev seed
+internal/config/         конфигурация и проверка секретов
+internal/entities/       доменные сущности/инварианты
+internal/handler/        Gin, DTO, маршруты
+internal/usecase/        Auth, каталог, PVM, shopping, media, wishlists
+internal/storage/        PostgreSQL, SQL и транзакции
+internal/security/       Argon2id, JWT/CSRF, share capabilities
+internal/mailer/         общий SMTP, HTML/text письма
+internal/objectstorage/  приватный S3-compatible SeaweedFS
+migrations/              append-only SQL 001–015 и migration runner
+frontend/src/            React UI, features, transport и auth state
+frontend/e2e/            настоящие API/Mailpit/browser сценарии
+frontend/docs/           план и отчёты предыдущих этапов
+compose*.yaml            отдельные working/QA/Go-test окружения
+deploy/                  запуск приватного SeaweedFS
+scripts/                 безопасные команды запуска/QA/demo
+demo/catalog/            необязательные изображения и manifest витрины
+docs/                    актуальные доменные контракты
+.github/workflows/ci.yml проверки PR, без deployment
 ```
 
-Compose запускает `db`, `seaweedfs` и `app`, передаёт приложению DATABASE_URL с внутренним адресом `db:5432` и ждёт готовности PostgreSQL и приватного SeaweedFS. Приложение применяет миграции до открытия HTTP-порта. В свежей БД списки пользователей, брендов и товаров пусты (`[]`).
+[Архитектура](docs/architecture.md), [единая карта всех API](docs/api-reference.md), [ревизия и технический долг](docs/project-review.md), [план frontend](frontend/docs/IMPLEMENTATION_PLAN.md).
 
-HTTP, PostgreSQL и S3 опубликованы только на `127.0.0.1` хоста (порты 8080, 5432 и 8333). Внутри контейнера Dockerfile явно задаёт `HTTP_ADDR=:8080`. Настройки Compose предназначены для локальной разработки: роль владельца БД, демонстрационный пароль и отключённый SSL.
+## Быстрый запуск: Windows PowerShell
 
-`.env` игнорируется Git и исключён из Docker build context. Не добавляйте реальные секреты в исходники или `.env.example`. В примере используется локальный пароль `srez_dev`; для существующего volume из предыдущих этапов нужен фактический прежний пароль. Изменение POSTGRES_PASSWORD **не меняет пароль роли в уже созданной БД**. Для нового локального окружения допустим другой URL-safe пароль; согласуйте с ним DATABASE_URL при запуске Go на хосте.
+Нужны Docker Desktop с Linux containers и Node 24 LTS (либо совместимая версия из frontend/package.json). Для Docker-запуска Go на хосте не нужен. Ниже команды из **корня этой рабочей копии**. Не запускайте другой Compose поверх чужой БД.
 
-Данные сохраняются в named volume `postgres_data`. Чтобы продолжать использовать прежнюю БД, сохраняйте имя Compose-проекта. Остановка с сохранением данных:
-
-```sh
-docker compose down
+```powershell
+# Например, после открытия своей локальной папки SREZ:
+docker version
+docker compose version
+node --version
+node .\frontend\scripts\prepare-local.mjs
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-integration.ps1
 ```
 
-Не удаляйте volume и не используйте `down -v` для обновления проекта или миграций.
+Скрипт сохраняет существующие значения `.env` и генерирует только отсутствующие ключи. Не копируйте `.env.example` поверх своей конфигурации. Docker собирает Go и React, запускает PostgreSQL/SeaweedFS/Mailpit, затем API применяет недостающие миграции. Готовый frontend обслуживает nginx, отдельный терминал Vite для обычного запуска не нужен.
 
-## Демонстрационные данные
+| Сервис       | Адрес на этом ПК             | В Docker       |
+| ------------ | ---------------------------- | -------------- |
+| SREZ         | http://localhost:5174        | frontend:8080  |
+| API          | http://127.0.0.1:8081/health | app:8080       |
+| PostgreSQL   | 127.0.0.1:15432              | db:5432        |
+| SeaweedFS S3 | 127.0.0.1:18333, приватный   | seaweedfs:8333 |
+| Mailpit UI   | http://127.0.0.1:8025        | mailpit:8025   |
+| SMTP         | 127.0.0.1:1025               | mailpit:1025   |
 
-После сборки и запуска приложения выполните seed явно:
+Все опубликованные порты привязаны к loopback. Для auth используйте именно **localhost:5174**, как в PUBLIC_ORIGIN и FRONTEND_BASE_URL. Mailpit можно открыть через 127.0.0.1. Не меняйте hostname приложения посреди cookie-сессии.
 
-```sh
-docker compose run --rm --no-deps -e SREZ_DEV_SEED=true --entrypoint /seed app
+```powershell
+Invoke-RestMethod 'http://127.0.0.1:8081/health'
+Invoke-RestMethod 'http://localhost:5174/api/health'
+docker compose -p srez-integration -f compose.integration.yaml ps
+# Остановка с сохранением БД, изображений и писем:
+docker compose -p srez-integration -f compose.integration.yaml stop
+# Возобновление:
+docker compose -p srez-integration -f compose.integration.yaml start
 ```
 
-Seed создаёт активные бренды `srez-studio` и `linea`, по опубликованному товару с двумя цветами и тремя вариантами. У размера L остаток равен нулю. URL и контакты демонстрационные; ID генерирует PostgreSQL, поэтому берите их из GET-ответов.
+Не используйте down -v, factory reset, удаление volumes или смену POSTGRES_PASSWORD ради исправления запуска. Изменение переменной не меняет пароль роли в существующей БД. Если порт занят, определите владельца процесса и выберите отдельное окружение; не завершайте неизвестные процессы.
 
-Команда требует `SREZ_DEV_SEED=true`; сервер её не вызывает. Повторный запуск не создаёт дубликаты. Существующий slug пропускается целиком: его бренд и товары не меняются, вручную изменённые примеры не восстанавливаются.
+## Конфигурация
 
-## Go / GoLand на хосте
+`.env` приватный и не читается Go автоматически. Compose подставляет его значения; dev-скрипт читает файл как данные, не исполняет shell. Пример не содержит настоящих SMTP/API секретов.
 
-Нужен Go **1.27.2 или новее**. В zsh/bash из корня проекта, после создания `.env` по примеру:
+| Настройка                               | Назначение                                                          |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| POSTGRES_PASSWORD, DATABASE_URL         | пароль БД и native Go DSN; Compose задаёт внутренний db:5432        |
+| HTTP_ADDR                               | адрес Go listener, native integration 127.0.0.1:8081                |
+| SREZ_JWT_KEY / SREZ_CSRF_KEY            | независимые Base64 ключи минимум 32 байта                           |
+| SREZ_WISHLIST_KEY                       | отдельный стабильный ключ owner recovery публичных ссылок           |
+| SREZ_PUBLIC_ORIGIN                      | точный origin auth, integration http://localhost:5174               |
+| SREZ_AUTH_LOCAL_HTTP                    | true только для локального loopback HTTP                            |
+| SREZ_S3_*                               | endpoint, private access/secret keys, bucket/region; только backend |
+| SREZ_SMTP_HOST / PORT                   | Docker mailpit:1025, native Windows 127.0.0.1:1025                  |
+| SREZ_MAIL_FROM                          | sender, локально SREZ <no-reply@srez.local>                         |
+| SREZ_FRONTEND_BASE_URL                  | доверенный origin ссылок, integration http://localhost:5174         |
+| SREZ_SMTP_TLS                           | none только локально; starttls/tls для провайдера                   |
+| SREZ_SMTP_USERNAME / PASSWORD           | необязательные private credentials реального SMTP                   |
+| SREZ_EMAIL_IP_MINUTE_LIMIT / HOUR_LIMIT | defaults10/50; независимые persistent quotas verification/recovery  |
 
-```sh
-docker compose up -d --wait db seaweedfs
-docker compose stop app
-set -a
-source .env
-set +a
-go run ./cmd/app
+JWT, CSRF, wishlist и S3 ключи нельзя регенерировать при каждом запуске: это нарушит существующие сессии/доступ к данным. `.env`, `.secrets`, дампы, volumes и Mailpit mailbox должны оставаться приватными. В браузер не передаются server secrets; VITE_* для них не используется.
+
+`compose.integration.yaml` — рекомендуемая полная локальная копия. Базовый `compose.yaml` остаётся backend-only конфигурацией на 8080/5432/8333; не применяйте его к старому проекту для обновления. `compose.frontend.yaml` — дополнительная локальная конфигурация прежнего workflow. Для текущей копии достаточно одного integration Compose.
+
+## Разработка Go и React отдельно
+
+Frontend сохраняет React/TS/Vite. Vite слушает localhost:5174, проксирует **только /api** к 127.0.0.1:8081 с удалением префикса и /media без изменения пути. /products и /brands принадлежат frontend routing и целиком не проксируются.
+
+```powershell
+# Если вместо Docker frontend нужен Vite:
+docker compose -p srez-integration -f compose.integration.yaml stop frontend
+npm.cmd --prefix .\frontend ci
+npm.cmd --prefix .\frontend run dev
 ```
 
-Source выполняет содержимое файла в shell: используйте только свой локальный `.env`, созданный из проверенного примера. Приложение само `.env` не читает.
+Для native Go нужен Go1.27.2+ в PATH. В другом PowerShell остановите только integration app; инфраструктура остаётся той же:
 
-Для GoLand задайте DATABASE_URL в Environment variables: `postgres://srez:srez_dev@localhost:5432/srez?sslmode=disable` (с фактическим локальным паролем). PostgreSQL должен быть доступен при старте. Если HTTP_ADDR не задан или пуст, сервер слушает **127.0.0.1:8080**. Явное значение сохраняется; другой локальный порт: `HTTP_ADDR=127.0.0.1:8081 go run ./cmd/app`.
-
-Seed для Go с тем же локальным DATABASE_URL: `SREZ_DEV_SEED=true go run ./cmd/seed`.
-
-## HTTP API
-
-| Метод | Путь | Поведение |
-| --- | --- | --- |
-| GET | `/health` | состояние HTTP-процесса, не проверка БД |
-| GET | `/brands` | активные бренды |
-| GET | `/brands/:slug` | активный бренд или 404 |
-| GET | `/products` | карточки published-товаров активных брендов, фильтры, сортировка и пагинация |
-| GET | `/products/:id` | подробная карточка с цветами, изображениями и вариантами |
-| POST | `/products` | Bearer JWT и активный owner/editor конкретного бренда; сохраняет draft, 201 |
-| POST / GET | `/products/:id/colors` | создание / управляющий список цветов, Bearer + active owner/editor |
-| PATCH / DELETE | `/products/:id/colors/:color_id` | переименование / атомарное удаление цвета с дочерними данными |
-| POST / GET | `/products/:id/colors/:color_id/variants` | создание / список размеров и остатков |
-| PATCH / DELETE | `/products/:id/colors/:color_id/variants/:variant_id` | изменение размера/stock/SKU / удаление варианта |
-| POST / GET | `/products/:id/colors/:color_id/images` | добавление HTTPS URL / список фотографий с ID и позициями |
-| PATCH / DELETE | `/products/:id/colors/:color_id/images/:image_id` | изменение URL/позиции / удаление фотографии |
-| POST | `/products/:id/colors/:color_id/images/reorder` | атомарный порядок всех image_ids |
-| POST | `/auth/register` | регистрация, 201; email/username/display_name/password |
-| POST | `/auth/login` | identifier (email или username) и password; access JWT, CSRF и refresh-cookie |
-| GET | `/auth/csrf` | восстановление CSRF по действующей refresh-cookie |
-| POST | `/auth/refresh` | атомарная ротация cookie и новый access JWT |
-| POST | `/auth/logout` | отзыв текущей refresh-сессии, 204 |
-| GET | `/profile` | собственный профиль/email по Bearer JWT |
-| PATCH | `/profile` | собственные display_name/avatar_url по Bearer JWT |
-| GET / POST / DELETE | `/favorites`, `/favorites/:product_id` | собственное избранное по Bearer JWT |
-| GET | `/cart` | собственная корзина и серверный итог |
-| POST / PATCH / DELETE | `/cart/items`, `/cart/items/:id` | добавить вариант / задать количество / удалить свою строку |
-| POST / GET | `/orders` | оформление текущей корзины / собственная история заказов |
-| GET | `/orders/:id` | собственный заказ со снимками; чужой ID — 404 |
-| POST | `/orders/:id/cancel` | тело `{}`; отмена своего неоплаченного заказа до истечения 15 минут |
-| GET | `/projects` | фиксированный список предыдущего учебного этапа |
-
-ID — положительный int64; неверное значение или переполнение дают 400. Slug: 3–60 строчных латинских букв, цифр или дефисов. Недоступные публично сущности дают 404. Ошибки имеют вид `{"error":"описание"}`; SQL-детали клиенту не передаются.
-
-Все старые `/users` HTTP-маршруты отключены (404), чтобы исключить создание аккаунтов без пароля, перечисление пользователей и обход проверки владельца. Существующие записи сохраняются. Публичные DTO регистрации исключают email/хеш; собственный профиль включает email. PATCH принимает только display_name/avatar_url, непустой URL — HTTPS. Пользовательский ID в JSON не принимается.
-
-### Фильтры и карточки каталога
-
-```sh
-curl -i 'http://127.0.0.1:8080/products?category=hoodie&min_price=200000&max_price=800000&size=M&sort=price_asc&page=1&limit=20'
+```powershell
+docker compose -p srez-integration -f compose.integration.yaml up -d --wait db seaweedfs mailpit
+docker compose -p srez-integration -f compose.integration.yaml stop app
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev-backend.ps1
 ```
 
-Параметры передаются в URL списка `/products`, без ID товара. Все параметры необязательны и объединяются через AND:
+Native backend работает с Vite frontend; Docker nginx ожидает контейнер app. Dev-скрипт временно загружает .env, затем явно задаёт integration DSN на **15432**, HTTP8081, S318333, SMTP1025 и origin localhost:5174. Исходный .env не меняется. GoLand Run Configuration должен использовать те же значения и существующие ключи; исторический DATABASE_URL на5432 не подходит. После завершения native процессов вернитесь к start-integration.ps1.
 
-| Параметр | Значение |
-| --- | --- |
-| `category` | `tshirt`, `hoodie`, `pants`, `outerwear`, `footwear`, `accessories`, `other` |
-| `brand_id` | Положительный ID бренда из `GET /brands` |
-| `min_price`, `max_price` | Включительные границы цены в копейках, целые числа >=0; минимум не больше максимума |
-| `size` | Размер в наличии, до 20 Unicode-символов; регистр и пробелы по краям не учитываются |
-| `color` | Цвет в наличии; регистр и пробелы по краям не учитываются |
-| `sort` | `id_asc` (по умолчанию), `price_asc`, `price_desc`, `newest`, `oldest` |
-| `page` | Положительный номер страницы, по умолчанию `1` |
-| `limit` | Число товаров на странице от `1` до `100`, по умолчанию `20` |
+## PostgreSQL и миграции
 
-Например, `min_price=200000` означает 2000 рублей. Size/color выбирают варианты с `stock > 0`; при совместном указании размер должен быть в наличии именно у выбранного цвета. Фильтры выбирают товары, но не убирают сведения об остальных цветах из карточки. При одинаковой цене или дате порядок дополнительно определяется ID.
+SQL001–015 встроены в бинарник. Startup выполняет миграции до HTTP listener под advisory lock, в транзакции. Изменённый применённый SQL блокирует startup; добавлять нужно только новую версию. Старые файлы и migration journal не переписываются.
 
-Известный параметр должен иметь одно непустое значение. Некорректные значения, повторённые известные параметры и переполнение чисел возвращают `400`; неизвестные параметры игнорируются. Неизвестный бренд, отсутствие совпадений и страница за концом списка возвращают `200` с `[]`.
+Migration runner признаёт одинаковый SQL с LF/CRLF, чтобы Windows checkout и Linux clone не давали ложный checksum conflict; другие изменения по-прежнему отклоняются. Новые journal checksums canonical LF, старые сохранены.
 
-Ответ сохраняет JSON-массив и прежние поля товара. Дополнительно каждая карточка содержит обложку `preview_image_url`, `brand_name`, `brand_slug`, `is_available`, `available_colors`, `available_sizes` и компактный список `colors` с обложкой и доступными размерами каждого цвета. Данные пагинации передаются через заголовки `X-Total-Count`, `X-Page`, `X-Limit`, `X-Total-Pages`.
+Данные находятся в named volumes проекта: postgres_data, seaweedfs_data, mailpit_data. Сохраняйте имя Compose-проекта. Миграции сначала проверяются на отдельной тестовой БД, затем допустимы в working. Резервная копия — приватные исходники/config + custom pg_dump с проверкой SHA-256/TOC, не файл в Git.
 
-**Изменение поведения для клиентов:** запрос `GET /products` без параметров теперь возвращает первую страницу из 20 товаров вместо полного списка. Для следующих страниц передавайте `page`; `X-Total-Count` содержит количество всех совпадений до пагинации.
+## Mailpit, регистрация и восстановление
 
-`is_available=true` означает наличие хотя бы одного варианта с положительным остатком. Опубликованные товары без остатков остаются в каталоге с `is_available=false` и пустыми списками доступных цветов и размеров. Все массивы возвращаются как `[]`, если данных нет; отсутствующая обложка — как пустая строка. Для выбора сочетания цвета и размера используйте `available_sizes` внутри конкретного элемента `colors`: общий список размеров объединяет доступные размеры всех цветов.
+Откройте `/register`, создайте аккаунт с паролем от12 символов. До подтверждения почты JWT/refresh не выдаются. Откройте Mailpit8025, найдите письмо по `to:ваш-email`, перейдите по кнопке и отдельно подтвердите адрес на странице SREZ. Затем войдите. Legacy-аккаунты сохраняют вход с required=false и реальным verified_at=NULL; UI не считает их подтверждёнными.
 
-Полный контракт и пример ответа: [docs/catalog-api.md](docs/catalog-api.md). GET /products публичен, JWT не нужен. JSON детальной карточки и создания товара сохраняется; POST /products требует Bearer JWT и активный owner/editor целевого бренда.
+На login есть «Забыли пароль?». Для ранее подтверждённой почты можно запросить ссылку, открыть письмо Mailpit и установить новый пароль дважды. Все старые сессии и JWT отзываются; автоматического входа нет. Неизвестный/неподтверждённый адрес получает такой же нейтральный ответ.
 
-### Управление брендами и товарами
+Оба challenge используют отдельные таблицы, 32 random bytes, SHA-256, срок30 минут, одноразовость и ротацию. Account quota:60 секунд/5 выпусков в час. SMTP только после SQL commit; при отказе аккаунт не теряется. Асинхронный resend/forgot не обещает доставку, после сбоя требуется повторить позже. Plaintext durable outbox не используется.
 
-Все маршруты ниже требуют Bearer JWT. Роли берутся из актуального membership в PostgreSQL для конкретного бренда, не из JSON или JWT. Owner может управлять настройками и участниками; owner/editor могут управлять товарами. Invited/declined/revoked прав не дают. Отзыв применяется к новым операциям сразу, даже со старым действующим access JWT.
+[Verification API и пошаговая Windows-инструкция](docs/email-verification.md), [Recovery API и отзыв JWT](docs/account-recovery.md). Внешний провайдер потребует HTTPS, TLS, sender/domain и отдельной проверки доставки; сейчас письма остаются локальными.
 
-| Метод | Путь | Доступ |
-| --- | --- | --- |
-| POST | `/brands` | любой аутентифицированный пользователь; создаёт draft и owner в одной транзакции |
-| GET | `/me/brands` | свои бренды с активным membership и ролью |
-| GET | `/brands/:id/manage` | активный owner/editor |
-| PATCH | `/brands/:id` | owner; name/slug/description/logo_url/banner_url/contacts/appearance |
-| POST | `/brands/:id/publish`, `/brands/:id/unpublish` | owner; тело `{}` |
-| GET | `/brands/:id/members` | owner; только membership DTO, без email/хешей |
-| POST | `/brands/:id/invitations` | owner; зарегистрированный username |
-| GET | `/me/brand-invitations` | свои ожидающие приглашения, бренд и роль |
-| POST | `/brands/:id/invitations/accept`, `/brands/:id/invitations/decline` | только адресат; тело `{}` |
-| DELETE | `/brands/:id/members/:user_id` | owner; отзыв editor, owner отзывать нельзя |
-| GET | `/brands/:brand_id/products/manage` | активный owner/editor; включая draft/hidden |
-| POST | `/products` | активный owner/editor; draft для draft/active бренда |
-| PATCH | `/products/:id` | активный owner/editor реального бренда товара |
-| POST | `/products/:id/publish`, `/products/:id/hide`, `/products/:id/unpublish` | активный owner/editor; тело `{}` |
+## Каталог, PVM, изображения и роли
 
-Непричастный пользователь получает 404 для приватного ресурса, editor при попытке owner-операции — 403. Некорректный запрос — 400, конфликт перехода/slug/неполная публикация — 409. Suspended бренд не допускает управление товарами; публикация товара требует active бренда. PATCH товара допускает только name/description/price_kopecks/category/materials, brand_id менять нельзя. Contacts/appearance в PATCH бренда заменяются целиком, а не сливаются по отдельным полям. Статусы меняются отдельными POST-операциями.
+Каталог и бренды публичны; новые пустые БД не заполняются приложением автоматически. Цена — копейки, пагинация — HTTP заголовки. Цвет+размер выбирают один реальный product_variant_id, отсутствующие сочетания нельзя купить.
 
-Пример после login (ACCESS_TOKEN владельца и EDITOR_TOKEN редактора получаются через описанные ниже auth endpoints):
+В `/studio` owner создаёт бренд, описание/логотип и публикует. Owner/editor создают draft товар, заполняют материалы/цену/категорию, цвета, фото и варианты с остатками; затем явно публикуют. Структурные изменения опубликованного товара могут потребовать hide → edit → publish. Owner управляет приглашениями; editor не меняет owner-настройки. Отзыв роли действует через актуальный SQL membership.
 
-```sh
-# Создать бренд; ID возьмите из ответа.
-curl -sS "$ORIGIN/brands" -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"Мой бренд","slug":"my-brand"}'
-BRAND_ID=3 # замените на настоящий ID из ответа
-curl -sS "$ORIGIN/brands/$BRAND_ID/invitations" -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"username":"editor_username"}'
-curl -sS "$ORIGIN/brands/$BRAND_ID/invitations/accept" -H "Authorization: Bearer $EDITOR_TOKEN" \
-  -H 'Content-Type: application/json' -d '{}'
-curl -sS "$ORIGIN/products" -H "Authorization: Bearer $EDITOR_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d "{\"brand_id\":$BRAND_ID,\"name\":\"Футболка\",\"price_kopecks\":250000}"
+Файлы загружаются POST /media/uploads → PUT content_url через Go. Поддерживаются JPEG/PNG/WebP до5 MiB с проверкой фактического содержимого, размеров, нормализацией и повторным RBAC. S3 private. Legacy HTTPS URLs читаются, но новые avatar/logo/banner и PVM photos загружаются через Media API; PATCH внешних URL запрещён. Managed URL имеет вид /media/assets/:id/content, ошибка изображения даёт placeholder.
+
+[Каталог](docs/catalog-api.md), [актуальный PVM](docs/product-variant-management.md), [Media](docs/media-storage.md), [GC](docs/media-storage.md).
+
+Необязательный `demo/catalog` содержит пять разных брендов,21 позицию (по3 в каждой категории), различные PNG. `node scripts/seed-showcase.mjs` сначала только проверяет manifest; запись требует явного --apply. Новый demo owner проходит обычное подтверждение Mailpit, после чего скрипт запускается повторно. Частные credentials/state остаются в .secrets. Не запускайте seed ради исправления пользовательской БД. Старый cmd/seed также требует явного SREZ_DEV_SEED=true и не перезаписывает существующие slug.
+
+## Покупатель и вишлисты
+
+`/favorites` синхронизируется с карточками; `/cart` хранит реальные варианты, количество и суммы из API. Корзина ничего не резервирует. POST /orders принимает {}, перепроверяет stock/price и создаёт неоплаченный резерв15 минут. История и cancel_before берутся с сервера. Отмена/истечение освобождают остатки атомарно. При неопределённом POST сначала проверьте историю — повторная отправка автоматически не выполняется.
+
+Вишлисты отделены от избранного: до20 списков по200 товаров, предпочтительный variant nullable, полный reorder. Share выдаёт capability, revoke/rotate запрещает старую ссылку при следующем запросе. Публичный DTO исключает скрытые товары/private profile; право не берётся из cookie. Уже прочитанные гостем данные невозможно отозвать из памяти.
+
+[Buyer API и сценарии](docs/buyer-shopping.md), [Wishlists API](docs/wishlists.md). `/projects` сохранён только для учебной совместимости; /users HTTP отключены.
+
+## Тестирование и CI
+
+Тесты не должны использовать рабочую БД. Существующие окружения разделены:
+
+| Проект           | Frontend/API | PostgreSQL | S3    | Mailpit UI/SMTP |
+| ---------------- | ------------ | ---------- | ----- | --------------- |
+| srez-integration | 5174/8081    | 15432      | 18333 | 8025/1025       |
+| srez-mvp-qa      | 5175/8082    | 15433      | 18334 | 18025/11025     |
+| srez-mvp-tests   | нет          | 15434      | 18335 | 28025/12025     |
+
+```powershell
+# Frontend:
+npm.cmd --prefix .\frontend ci
+npm.cmd --prefix .\frontend run typecheck
+npm.cmd --prefix .\frontend run lint
+npm.cmd --prefix .\frontend test
+npm.cmd --prefix .\frontend run build
+npm.cmd --prefix .\frontend run format:check
+# Go с реальными изолированными PostgreSQL/SeaweedFS/Mailpit:
+docker compose -p srez-mvp-tests -f compose.tests.yaml up -d --wait
+docker build --target build -t srez-mvp-go-check:local .
+node .\scripts\qa-go.mjs full
+node .\scripts\qa-go.mjs vet
+# Browser, только изолированный localhost:5175:
+docker compose -p srez-mvp-qa -f compose.qa.yaml up -d --build --wait
+node .\scripts\qa-browser.mjs all
+# Сервисная остановка не удаляет volumes:
+docker compose -p srez-mvp-qa -f compose.qa.yaml stop
 ```
 
-Dev-флаг создания товаров удалён и не предоставляет обхода. Legacy/seed-бренды не получают владельцев автоматически: они сохраняют публичное чтение, но не доступны для управления до отдельного доверенного назначения оператором. Публичного присвоения бренда или передачи владения нет.
+Обычные go build ./..., go vet ./..., go test ./... доступны на хосте. Без TEST_DATABASE_URL интеграционные tests явно skipped; такой прогон не доказывает работу PostgreSQL. Полный QA runner передаёт test DSN/S3/Mailpit через env без вывода секретов. Browser runner открывает отдельный процесс на spec, автоматически обнаруживает все tests, не исключает recovery и не повторяет упавшие автоматически. Требуется установленный Chrome; на новом компьютере `npm.cmd --prefix frontend exec -- playwright install chrome`.
 
-Полный товар теперь можно подготовить через HTTP: создать draft, цвет, HTTPS-фотографии и размеры/остатки, затем опубликовать активный бренд и товар. Все PVM-маршруты требуют Bearer JWT и текущий active owner/editor в БД; invited/declined/revoked и чужие дочерние ID скрываются как 404. У опубликованного товара нельзя удалить последний цвет, последнюю фотографию или вариант цвета: 409 откатывает всю операцию. Для подготовки нового пустого цвета сначала явно скрой товар или сними с публикации. Нулевой stock допустим.
+CI проверяет Go format/build/vet/tidy и полный suite с реальной test инфраструктурой; отдельно npm ci/typecheck/Oxlint/format/unit/build и browser QA. Actions имеют contents:read, не используют production secrets и не выполняют deployment. Первый удалённый run нужно оценивать отдельно от локальных результатов.
 
-Фотографии имеют стабильные ID; их позиции 0..n-1 меняются со сдвигом соседей в одной транзакции. POST без position добавляет фото в конец, PATCH перемещает его, reorder принимает все image_ids в новом порядке. Максимум 10 HTTPS-фотографий на цвет; URL уникальны внутри цвета. Миграция 005 сохраняет старые фотографии и добавляет ID/отложенную проверку уникальности позиций. Физические файлы не загружаются.
+[Итог этого этапа](docs/release-report.md), [review и приоритеты](docs/project-review.md). Исторические frontend отчёты описывают свои этапы, их старые количества тестов не являются текущими.
 
-Все 13 маршрутов, JSON DTO, ошибки, транзакции, доменные правила и пошаговая инструкция **Windows PowerShell** с регистрацией owner/editor, получением JWT, созданием и публикацией товара: [docs/product-variant-management.md](docs/product-variant-management.md). Seed для этого сценария не требуется. Публичные DTO каталога и загрузка без N+1 сохранены.
+## Безопасность и границы
 
-POST принимает ровно один JSON-объект до 64 КиБ включительно; лимит измеряется по фактически прочитанным байтам, включая пробелы и chunked-тело. Превышение даёт 413. Неизвестные поля, клиентские ID/статус/даты и дополнительный JSON запрещены. Обязательны brand_id > 0 и name длиной 2–120 Unicode-символов после trim. Description до 5000 символов, цена — int64 в копейках >=0, категория пустая или `tshirt/hoodie/pants/outerwear/footwear/accessories/other`, materials — до 10 непустых строк без повторений после trim. Draft может быть неполным, автоматической публикации нет.
+JWT только в памяти JS, refresh HttpOnly/Strict, точный Origin и CSRF для cookie-операций. Bearer проверяет активную сессию одним индексированным запросом: reset/logout/replay отзывают access при следующей проверке. Кеш отзыва не используется; DB pool ограничен20 соединениями, auth lookup имеет deadline2 секунды. При недоступной БД доступ не разрешается. Уже выполняющийся запрос не отменяется задним числом.
 
-## Архитектура
+SQL параметризован, user_id/роль/цены не принимаются вместо серверных данных, RBAC/IDOR/private media проверяются повторно. Sensitive страницы очищают URL и используют no-store/no-referrer/CSP; логи не содержат credentials/capability URL. В Git не входят .env, .secrets, дампы, базы, node_modules, сборки, логи и локальные screenshots. Резервные копии остаются на компьютере.
 
-`cmd/app` собирает зависимости. `handler` разбирает HTTP и формирует DTO; `usecase` выполняет сценарии и межсущностные проверки; `entities` задают инварианты и переходы состояний; `storage` выполняет параметризованный SQL через sqlx. HTTP-типы и SQL отделены от домена.
-
-Для списка товаров добавлены отдельная модель чтения `ProductCard` и метод репозитория `BrowsePublic`. Страница загружается максимум тремя SQL-запросами в одной read-only REPEATABLE READ-транзакции: количество совпадений, товары с брендами, затем цвета и варианты всей страницы с обложками. Для пустой страницы третий запрос не нужен. Запросов на каждую отдельную карточку нет (без N+1). Значения фильтров передаются параметрами SQL, сортировка выбирается из разрешённого списка. Само расширение фильтров/карточек не требует миграций; для управления фотографиями PVM добавляет миграцию 005 с сохранением данных.
-
-Подробности схемы, транзакций и миграций — в [docs/architecture.md](docs/architecture.md), доменные правила — в [internal/entities/README.md](internal/entities/README.md). Старое ТЗ каталога проектов сохранено в [docs/legacy/SPEC.md](docs/legacy/SPEC.md) для преподавателя; оно не описывает текущий маркетплейс.
-
-## Проверки
-
-```sh
-go test ./...
-go vet ./...
-git diff --check
-docker compose config
-```
-
-Compose config требует локальный `.env` или POSTGRES_PASSWORD в окружении; вывод команды включает разрешённые значения переменных, не публикуйте его с реальными секретами.
-
-Без TEST_DATABASE_URL PostgreSQL-интеграционные тесты помечаются skipped. Для их запуска используйте **отдельную тестовую БД**, например на порту 15432:
-
-```sh
-TEST_DATABASE_URL='postgres://srez:srez_dev@localhost:15432/srez?sslmode=disable' \
-  go test ./internal/storage -run Postgres -v -count=1
-```
-
-Порт приведён как пример; тестовая PostgreSQL должна быть запущена отдельно. Каждый тест создаёт уникальную схему `catalog_test_*`, задаёт search_path и удаляет только собственную тестовую схему. Проверяются миграции на чистой/существующей users-схеме, rollback, параллельный старт, seed, ограничения БД, публичность, связи цветов/вариантов и User CRUD. RBAC-тесты проверяют матрицу прав, BOLA, mass assignment, legacy-бренды, атомарность создания owner, приглашения/отзыв и конкурентные операции. Остальные тесты проверяют домен, usecase, DTO, HTTP-ошибки и лимит тела.
-
-Для полного сквозного прогона Auth → RBAC → публикация → Catalog API задайте TEST_DATABASE_URL той же **отдельной тестовой БД** и выполните:
-
-```sh
-TEST_DATABASE_URL='postgres://srez:srez_dev@localhost:15432/srez?sslmode=disable' \
-  go test ./... -count=1
-```
-
-Этот прогон включает HTTP cross-feature тест и новый PVM-сценарий: регистрация owner/editor, бренд и приглашение, создание полного агрегата через HTTP без ручного SQL/seed, публикация, фильтры/карточка, изменение остатков, отзыв editor и отказ с прежним JWT. PostgreSQL-тесты PVM проверяют сохранение старых изображений при миграции, rollback, конкурентные дубликаты/удаления/reorder и ожидание блокировки с последующим отзывом прав. PostgreSQL query-count тест проверяет отсутствие N+1.
-
-## Authentication: окружение и проверка
-
-Auth включён всегда; отсутствие корректных ключей блокирует запуск. В `.env.example` ключи пусты намеренно. Создайте их командами быстрого запуска, не коммитьте `.env`.
-
-| Переменная | Назначение |
-| --- | --- |
-| SREZ_JWT_KEY / SREZ_CSRF_KEY | независимые base64-ключи минимум 32 случайных байта каждый |
-| SREZ_JWT_ISSUER / SREZ_JWT_AUDIENCE | обязательные issuer/audience |
-| SREZ_PUBLIC_ORIGIN | точный браузерный origin без пути/слеша; локально http://127.0.0.1:8080 |
-| SREZ_AUTH_LOCAL_HTTP | только true разрешает HTTP-cookie без Secure на loopback; production false/HTTPS |
-| SREZ_AUTH_ATTEMPTS | общий локальный login/register лимит на IP в минуту; по умолчанию 10 |
-| SREZ_AUTH_HASH_WORKERS | одновременно Argon2id; по умолчанию 2, максимум 8 |
-| SREZ_TRUSTED_PROXIES | явно доверенные IP/CIDR proxy через запятую; пусто по умолчанию |
-
-Access TTL фиксирован 15 минут, абсолютный refresh TTL — 7 дней. Ключи отсутствуют в образе; передаются окружением при запуске. При смене локального HTTP-порта меняйте также SREZ_PUBLIC_ORIGIN. Будущий frontend должен использовать dev proxy и хранить access только в памяти JavaScript; React и reverse proxy сейчас не реализованы.
-
-POST auth endpoints требуют точный Origin, в том числе curl, и application/json. GET /auth/csrf допускает отсутствующий Origin: обычный браузерный same-origin fetch может его не отправлять. Если Origin указан, он должен точно совпадать с SREZ_PUBLIC_ORIGIN. Для всех auth endpoints при наличии Sec-Fetch-Site разрешён только same-origin; cross-site, same-site и другие значения отклоняются. Без обоих заголовков GET допустим для совместимости с клиентами без Fetch Metadata: доступ всё равно требует действующую refresh-cookie, чтение сторонним браузерным сайтом ограничено Same-Origin Policy, CORS не включён. GET не изменяет сессию и возвращает Cache-Control: no-store. Refresh/logout дополнительно требуют X-CSRF-Token и cookie. Bearer GET/PATCH `/profile` не использует cookie и не требует Origin.
-
-Пример для локального окружения (curl, Python 3). Файлы с cookie/токенами создаются в отдельном временном каталоге с правами только владельца; не добавляйте их в Git и не публикуйте:
-
-```sh
-ORIGIN=http://127.0.0.1:8080
-AUTH_TMP=$(mktemp -d)
-chmod 700 "$AUTH_TMP"
-curl -sS -X POST "$ORIGIN/auth/register" -H "Origin: $ORIGIN" \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"demo-auth@example.com","username":"demo_auth","display_name":"Demo","password":"local demo password 123"}'
-curl -sS -c "$AUTH_TMP/cookies" "$ORIGIN/auth/login" -H "Origin: $ORIGIN" \
-  -H 'Content-Type: application/json' \
-  -d '{"identifier":"demo_auth","password":"local demo password 123"}' > "$AUTH_TMP/login.json"
-ACCESS_TOKEN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["access_token"])' "$AUTH_TMP/login.json")
-curl -sS "$ORIGIN/profile" -H "Authorization: Bearer $ACCESS_TOKEN"
-curl -sS -b "$AUTH_TMP/cookies" "$ORIGIN/auth/csrf" > "$AUTH_TMP/csrf.json"
-CSRF_TOKEN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["csrf_token"])' "$AUTH_TMP/csrf.json")
-curl -sS -b "$AUTH_TMP/cookies" -c "$AUTH_TMP/cookies" "$ORIGIN/auth/refresh" \
-  -H "Origin: $ORIGIN" -H "X-CSRF-Token: $CSRF_TOKEN" \
-  -H 'Content-Type: application/json' -d '{}' > "$AUTH_TMP/refresh.json"
-curl -i -b "$AUTH_TMP/cookies" "$ORIGIN/auth/logout" -H "Origin: $ORIGIN" \
-  -H "X-CSRF-Token: $CSRF_TOKEN" -H 'Content-Type: application/json' -d '{}'
-unset ACCESS_TOKEN CSRF_TOKEN
-```
-
-Для HTTP используется cookie srez_refresh_local; production: __Host-srez_refresh, Secure, HttpOnly, SameSite=Strict, Path=/, без Domain. CSRF сохраняет привязку к сессии при rotation. GET /auth/csrf позволяет восстановить его после перезагрузки страницы. Старый refresh в первые 5 секунд после ротации получает 409 без новых токенов; более поздний replay отзывает сессию. Координируйте refresh между вкладками. После logout access JWT может действовать до истечения 15 минут.
-
-Миграция 003 добавляет регистронезависимую уникальность email/username. При конфликтах старых данных запуск остановится, данные не меняются. Нужен разбор оператором с подтверждением владения; не удаляйте volume. Старые аккаунты с `!` не могут войти, не получают пароль через регистрацию и не имеют автоматического восстановления.
-
-Для фильтрации и карточек добавлены проверки сочетаний фильтров, остатков, сортировки при одинаковых значениях, страниц и заголовков пагинации, ошибок параметров и переполнения чисел. Отдельный PostgreSQL-тест считает реальные SQL-запросы и проверяет, что непустая страница загружается тремя запросами при разных лимитах.
-
-## Ограничения безопасности
-
-- Нужны независимое AppSec-ревью, HTTPS и production-инфраструктура. Локальный Compose использует demo-пароль PostgreSQL, sslmode=disable и роль владельца БД.
-- Rate limiting локальный, по IP: несколько инстансов/ботнет обходят общий лимит. Потребуется распределённая защита. Argon2id ограничен семафором, но это не полная защита от DoS.
-- JWT проверяется без запроса отзыва сессии; logout не отзывает access немедленно. XSS может украсть access из памяти и инициировать запросы с HttpOnly cookie. CSP/frontend-защита ещё не реализованы.
-- Пять секунд терпимости к replay не позволяют отличить все атаки от гонок; потеря ответа после rotation может потребовать нового login.
-- Нет email verification/recovery, retention job истории refresh и ограничения числа активных сессий. Register раскрывает занятость аккаунта ответом 409; login использует общую ошибку.
-- Все операции управления требуют Bearer и актуальный membership. Прямая SQL-запись оператором обходит прикладные проверки; доступ к БД должен быть ограничен.
-- Публичный каталог и его DTO сохранены. PVM хранит ссылки на фотографии и абсолютные остатки; файлового хранилища нет; заказы учитывают отдельные 15-минутные резервы. Ownership transfer и frontend пока отсутствуют.
-
-Полная модель угроз, жизненный цикл и компромиссы — в [docs/architecture.md](docs/architecture.md).
-
-Контракты избранного, корзины, оформления и истории заказов, миграции 006–008, конкурентный доступ, политика удаления вариантов и проверка в PowerShell: [docs/buyer-shopping.md](docs/buyer-shopping.md).
-
-Аудит транзакций, подтверждённые недостатки и исправления, изменение политики неоплаченных заказов и ограничения платёжного этапа: [docs/transaction-security-audit.md](docs/transaction-security-audit.md).
-
-Правила работы с банковскими спорами и поддержкой, несогласованные меры против злоупотреблений и юридические вопросы: [docs/chargebacks-and-support.md](docs/chargebacks-and-support.md).
-
-Media Storage Phase 2: [architecture, API, configuration, threat model and tests](docs/media-storage.md).
+Это проверенный локальный MVP, не независимая сертификация безопасности. Нет настоящей оплаты/доставки, password history, production monitoring/HTTPS/DNS, автоматической безопасной ротации всех ключей и retention jobs. Checkout idempotency key, каталожные facets, guest cart/merge и transfer ownership остаются отдельными задачами. Подробный приоритетный roadmap — в review. Публичный запуск требует отдельного разрешения и эксплуатации.

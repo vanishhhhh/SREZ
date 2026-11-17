@@ -2,11 +2,13 @@
 package migrations
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"embed"
 	"fmt"
 	"io/fs"
+	"slices"
 	"sort"
 
 	"github.com/jmoiron/sqlx"
@@ -35,13 +37,13 @@ func Apply(ctx context.Context, db *sqlx.DB) error {
 		return err
 	}
 	sort.Strings(names)
-	known := map[string]string{}
+	known := map[string][]string{}
 	for _, name := range names {
 		body, err := files.ReadFile(name)
 		if err != nil {
 			return err
 		}
-		known[name] = fmt.Sprintf("%x", sha256.Sum256(body))
+		known[name] = migrationChecksums(body)
 	}
 	rows, err := tx.QueryxContext(ctx, `SELECT version, checksum FROM schema_migrations`)
 	if err != nil {
@@ -54,7 +56,7 @@ func Apply(ctx context.Context, db *sqlx.DB) error {
 			rows.Close()
 			return err
 		}
-		if known[name] != checksum {
+		if !slices.Contains(known[name], checksum) {
 			rows.Close()
 			return fmt.Errorf("migration %s missing or modified", name)
 		}
@@ -77,7 +79,7 @@ func Apply(ctx context.Context, db *sqlx.DB) error {
 		}
 		body, _ := files.ReadFile(name)
 		if _, err = tx.ExecContext(ctx, string(body)); err == nil {
-			_, err = tx.ExecContext(ctx, `INSERT INTO schema_migrations(version, checksum) VALUES ($1, $2)`, name, known[name])
+			_, err = tx.ExecContext(ctx, `INSERT INTO schema_migrations(version, checksum) VALUES ($1, $2)`, name, known[name][0])
 		}
 		if err != nil {
 			tx.Rollback()
@@ -85,4 +87,13 @@ func Apply(ctx context.Context, db *sqlx.DB) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// Git's Windows checkout may use CRLF while the same SQL blob uses LF on Linux.
+// Accept exactly those two line-ending representations; retain existing journal
+// checksums unchanged. New entries use canonical LF. SQL edits still fail closed.
+func migrationChecksums(body []byte) []string {
+	lf := bytes.ReplaceAll(body, []byte("\r\n"), []byte("\n"))
+	crlf := bytes.ReplaceAll(lf, []byte("\n"), []byte("\r\n"))
+	return []string{fmt.Sprintf("%x", sha256.Sum256(lf)), fmt.Sprintf("%x", sha256.Sum256(crlf))}
 }

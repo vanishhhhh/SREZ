@@ -21,10 +21,13 @@ type noAuthRepo struct{}
 func (noAuthRepo) Register(context.Context, entities.User) (*entities.User, error) {
 	return nil, usecase.ErrAccountExists
 }
-func (noAuthRepo) FindLogin(context.Context, string) (*entities.User, error)         { return nil, nil }
-func (noAuthRepo) Rehash(context.Context, int64, string, string) error               { return nil }
-func (noAuthRepo) CreateSession(context.Context, entities.AuthSession, []byte) error { return nil }
-func (noAuthRepo) Session(context.Context, []byte) (*entities.AuthSession, error)    { return nil, nil }
+func (noAuthRepo) FindLogin(context.Context, string) (*entities.User, error) { return nil, nil }
+func (noAuthRepo) Rehash(context.Context, int64, string, string) error       { return nil }
+func (noAuthRepo) CreateSession(context.Context, entities.AuthSession, []byte, string) error {
+	return nil
+}
+func (noAuthRepo) AccessSession(context.Context, int64, string) (bool, error)     { return true, nil }
+func (noAuthRepo) Session(context.Context, []byte) (*entities.AuthSession, error) { return nil, nil }
 func (noAuthRepo) Rotate(context.Context, []byte, []byte, string, bool) (*entities.AuthSession, error) {
 	return nil, usecase.ErrAuth
 }

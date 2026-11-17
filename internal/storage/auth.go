@@ -42,12 +42,30 @@ func (a *Auth) Rehash(ctx context.Context, id int64, old, next string) error {
 	_, err := a.db.ExecContext(ctx, `UPDATE users SET password_hash=$3 WHERE id=$1 AND password_hash=$2`, id, old, next)
 	return err
 }
-func (a *Auth) CreateSession(ctx context.Context, s entities.AuthSession, hash []byte) error {
+func (a *Auth) AccessSession(ctx context.Context, uid int64, sid string) (bool, error) {
+	var active bool
+	err := a.db.GetContext(ctx, &active, `SELECT EXISTS(SELECT 1 FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND s.user_id=$2 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND (NOT u.email_verification_required OR u.email_verified_at IS NOT NULL))`, sid, uid)
+	return active, err
+}
+func (a *Auth) CreateSession(ctx context.Context, s entities.AuthSession, hash []byte, expectedPasswordHash string) error {
 	tx, err := a.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	var allowed bool
+	var currentHash string
+	if err = tx.QueryRowContext(ctx, `SELECT NOT email_verification_required OR email_verified_at IS NOT NULL,password_hash FROM users WHERE id=$1 FOR SHARE`, s.UserID).Scan(&allowed, &currentHash); err != nil {
+		return err
+	}
+	if !allowed {
+		return usecase.ErrEmailUnverified
+	}
+	// A login verified before a concurrent reset must not create a new session
+	// after the reset. Rehash may also force a harmless login retry.
+	if currentHash != expectedPasswordHash {
+		return usecase.ErrAuth
+	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO auth_sessions(id,user_id,created_at,expires_at,last_used_at) VALUES($1,$2,$3,$4,$5)`, s.ID, s.UserID, s.CreatedAt, s.ExpiresAt, s.LastUsedAt); err != nil {
 		return err
 	}
@@ -81,6 +99,18 @@ func (a *Auth) Rotate(ctx context.Context, old, next []byte, sid string, logout 
 		return nil, err
 	}
 	defer tx.Rollback()
+	// Global lock order: user, then session. Reset takes the same user lock
+	// before revoking sessions, so refresh/reset cannot deadlock.
+	var uid int64
+	if err = tx.GetContext(ctx, &uid, `SELECT user_id FROM auth_sessions WHERE id=$1`, sid); errors.Is(err, sql.ErrNoRows) {
+		return nil, usecase.ErrAuth
+	} else if err != nil {
+		return nil, err
+	}
+	var allowed bool
+	if err = tx.GetContext(ctx, &allowed, `SELECT NOT email_verification_required OR email_verified_at IS NOT NULL FROM users WHERE id=$1 FOR SHARE`, uid); err != nil {
+		return nil, err
+	}
 	s, err := scanSession(tx.QueryRowContext(ctx, `SELECT `+sessionColumns+` FROM auth_sessions s WHERE s.id=$1 FOR UPDATE`, sid))
 	if err != nil {
 		return nil, err
@@ -101,6 +131,9 @@ func (a *Auth) Rotate(ctx context.Context, old, next []byte, sid string, logout 
 		return s, tx.Commit()
 	}
 	if !s.Active(now) {
+		return nil, usecase.ErrAuth
+	}
+	if !allowed {
 		return nil, usecase.ErrAuth
 	}
 	if used != nil {

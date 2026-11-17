@@ -11,6 +11,7 @@ import (
 
 	"srez/internal/config"
 	"srez/internal/handler"
+	"srez/internal/mailer"
 	"srez/internal/objectstorage"
 	"srez/internal/security"
 	"srez/internal/storage"
@@ -23,6 +24,10 @@ func main() {
 	authCfg, err := config.LoadAuth()
 	if err != nil {
 		log.Fatal(err)
+	}
+	mailCfg, err := config.LoadMail(authCfg.Origin, authCfg.LocalHTTP)
+	if err != nil {
+		log.Fatal("invalid mail configuration")
 	}
 	tokens, err := security.NewTokens(authCfg.JWTKey, authCfg.CSRFKey, authCfg.Issuer, authCfg.Audience)
 	if err != nil {
@@ -38,6 +43,12 @@ func main() {
 		log.Fatal("не удалось подключиться к PostgreSQL: проверьте DATABASE_URL и доступность базы")
 	}
 	defer db.Close()
+	// Bearer revocation checks add one indexed read per private request. Bound
+	// the shared pool; waiting authentication requests have their own deadline.
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetConnMaxLifetime(30 * time.Minute)
 	migrationCtx, migrationCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer migrationCancel()
 	if err := migrations.Apply(migrationCtx, db); err != nil {
@@ -52,6 +63,15 @@ func main() {
 	h.SetShopping(usecase.NewShopping(storage.NewShopping(db)))
 	orders := usecase.NewOrders(storage.NewOrders(db))
 	h.SetOrders(orders)
+	wishlistKey, err := config.LoadWishlistKey()
+	if err != nil {
+		log.Fatal("configure an independent SREZ_WISHLIST_KEY")
+	}
+	links, err := security.NewWishlistLinks(wishlistKey)
+	if err != nil {
+		log.Fatal("invalid wishlist encryption key")
+	}
+	h.SetWishlists(usecase.NewWishlists(storage.NewWishlists(db), links))
 	if mediaCfg, enabled := config.LoadMedia(); enabled {
 		objects, err := objectstorage.New(mediaCfg)
 		if err != nil {
@@ -78,7 +98,16 @@ func main() {
 			log.Printf("media_gc pending=%d oldest_seconds=%.0f reconciliation=%d", b.Pending, b.OldestSeconds, b.Reconciliation)
 		})
 	}
-	auth := usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(authCfg.HashWorkers), tokens)
+	authRepo := storage.NewAuth(db)
+	sender := mailer.NewSMTP(mailCfg)
+	passwords := security.NewPasswords(authCfg.HashWorkers)
+	policy := usecase.VerificationPolicy{IPMinute: mailCfg.IPMinute, IPHour: mailCfg.IPHour, AccountHour: 5}
+	verification := usecase.NewEmailVerification(authRepo, sender, mailCfg.FrontendBaseURL, authCfg.CSRFKey, policy)
+	verification.OnDeliveryError = func() { log.Print("verification_delivery_failed") }
+	auth := usecase.NewAuth(authRepo, passwords, tokens, verification)
+	recovery := usecase.NewPasswordRecovery(authRepo, sender, passwords, mailCfg.FrontendBaseURL, authCfg.CSRFKey, policy)
+	recovery.OnDeliveryError = func() { log.Print("recovery_delivery_failed") }
+	auth.SetRecovery(recovery)
 	if err := h.EnableAuth(auth, tokens, authCfg); err != nil {
 		log.Fatal("invalid trusted proxies")
 	}

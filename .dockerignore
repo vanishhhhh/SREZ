@@ -35,3 +35,14 @@ postgres_data
 backups
 *.dump
 *.sql.gz
+
+frontend/node_modules
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+.github
+demo
+docs
+scripts
+frontend/docs/previews
+*.results.json

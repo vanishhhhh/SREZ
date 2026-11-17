@@ -2,8 +2,10 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -71,9 +73,20 @@ func managementHTTPError(c *gin.Context, e error) {
 	case errors.Is(e, entities.ErrNotReady):
 		status, message = 409, "resource is not ready for publication"
 	case errors.Is(e, entities.ErrInvalidValue):
+		log.Printf("management_invalid field=%s", managementInvalidField(e))
 		status, message = 400, "invalid resource data"
 	}
 	c.JSON(status, errorResponse{message})
+}
+
+// Only server-owned field names enter logs; error text, URLs and user input do not.
+func managementInvalidField(err error) string {
+	for _, field := range []string{"time", "brand.id", "brand.name", "brand.slug", "brand.description", "brand.image_url", "brand.timestamps", "product.timestamps", "product.name", "product.price", "appearance.color"} {
+		if strings.HasPrefix(err.Error(), field+":") {
+			return field
+		}
+	}
+	return "unspecified"
 }
 func emptyAction(c *gin.Context) bool { var r struct{}; return decodeUserRequest(c, &r) }
 func (h *Handler) createBrand(c *gin.Context) {

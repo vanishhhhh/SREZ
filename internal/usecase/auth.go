@@ -19,7 +19,8 @@ type AuthRepository interface {
 	Register(context.Context, entities.User) (*entities.User, error)
 	FindLogin(context.Context, string) (*entities.User, error)
 	Rehash(context.Context, int64, string, string) error
-	CreateSession(context.Context, entities.AuthSession, []byte) error
+	CreateSession(context.Context, entities.AuthSession, []byte, string) error
+	AccessSession(context.Context, int64, string) (bool, error)
 	Session(context.Context, []byte) (*entities.AuthSession, error)
 	Rotate(context.Context, []byte, []byte, string, bool) (*entities.AuthSession, error)
 }
@@ -27,10 +28,49 @@ type Auth struct {
 	repo      AuthRepository
 	passwords *security.Passwords
 	tokens    *security.Tokens
+	email     *EmailVerification
+	recovery  *PasswordRecovery
 }
 
-func NewAuth(r AuthRepository, p *security.Passwords, t *security.Tokens) *Auth {
-	return &Auth{r, p, t}
+func (a *Auth) SetRecovery(r *PasswordRecovery) { a.recovery = r }
+func (a *Auth) ForgotPassword(ctx context.Context, email, ip string) error {
+	if a.recovery == nil {
+		return ErrRecoveryUnavailable
+	}
+	return a.recovery.Forgot(ctx, email, ip)
+}
+func (a *Auth) ResetPassword(ctx context.Context, token, password string) error {
+	if a.recovery == nil {
+		return ErrRecoveryUnavailable
+	}
+	return a.recovery.Reset(ctx, token, password)
+}
+
+// One indexed lookup per authenticated request gives immediate revocation,
+// including logout, replay detection and password reset. No stale cache.
+func (a *Auth) Authenticate(ctx context.Context, raw string) (int64, error) {
+	uid, sid, err := a.tokens.VerifyIdentity(raw)
+	if err != nil {
+		return 0, ErrAuth
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	active, err := a.repo.AccessSession(ctx, uid, sid)
+	if err != nil {
+		return 0, err
+	}
+	if !active {
+		return 0, ErrAuth
+	}
+	return uid, nil
+}
+
+func NewAuth(r AuthRepository, p *security.Passwords, t *security.Tokens, email ...*EmailVerification) *Auth {
+	a := &Auth{repo: r, passwords: p, tokens: t}
+	if len(email) > 0 {
+		a.email = email[0]
+	}
+	return a
 }
 
 type AuthResult struct {
@@ -41,6 +81,9 @@ type AuthResult struct {
 }
 
 func (a *Auth) Register(ctx context.Context, email, username, name, password string) (*entities.User, error) {
+	return a.RegisterFrom(ctx, email, username, name, password, "")
+}
+func (a *Auth) RegisterFrom(ctx context.Context, email, username, name, password, ip string) (*entities.User, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	if len(email) > 254 {
 		return nil, entities.ErrInvalidValue
@@ -65,7 +108,22 @@ func (a *Auth) Register(ctx context.Context, email, username, name, password str
 	if err != nil {
 		return nil, err
 	}
-	return a.repo.Register(ctx, *user)
+	if a.email == nil {
+		return nil, ErrVerificationUnavailable
+	}
+	return a.email.register(ctx, *user, ip)
+}
+func (a *Auth) VerifyEmail(ctx context.Context, raw string) error {
+	if a.email == nil {
+		return ErrVerificationUnavailable
+	}
+	return a.email.Verify(ctx, raw)
+}
+func (a *Auth) ResendVerification(ctx context.Context, identifier, ip string) error {
+	if a.email == nil {
+		return ErrVerificationUnavailable
+	}
+	return a.email.Resend(ctx, identifier, ip)
 }
 func (a *Auth) Login(ctx context.Context, identifier, password string) (*AuthResult, error) {
 	user, err := a.repo.FindLogin(ctx, strings.ToLower(strings.TrimSpace(identifier)))
@@ -83,6 +141,10 @@ func (a *Auth) Login(ctx context.Context, identifier, password string) (*AuthRes
 	if !ok || user == nil {
 		return nil, ErrAuth
 	}
+	// Reveal this state only after verifying the supplied password.
+	if !user.CanAuthenticate() {
+		return nil, ErrEmailUnverified
+	}
 	if rehash {
 		newHash, e := a.passwords.Upgrade(ctx, password, hash)
 		if e != nil {
@@ -91,6 +153,7 @@ func (a *Auth) Login(ctx context.Context, identifier, password string) (*AuthRes
 		if e = a.repo.Rehash(ctx, user.ID(), hash, newHash); e != nil {
 			return nil, e
 		}
+		hash = newHash
 	}
 	now := time.Now().UTC()
 	session := entities.AuthSession{ID: security.Random(), UserID: user.ID(), CreatedAt: now, ExpiresAt: now.Add(7 * 24 * time.Hour), LastUsedAt: now}
@@ -99,7 +162,7 @@ func (a *Auth) Login(ctx context.Context, identifier, password string) (*AuthRes
 	if err != nil {
 		return nil, err
 	}
-	if err = a.repo.CreateSession(ctx, session, security.Digest(refresh)); err != nil {
+	if err = a.repo.CreateSession(ctx, session, security.Digest(refresh), hash); err != nil {
 		return nil, err
 	}
 	return result, nil

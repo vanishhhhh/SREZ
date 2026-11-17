@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.sh text eol=lf
+migrations/*.sql text eol=lf
+migrations/012_shareable_wishlists.sql text eol=lf
+migrations/013_wishlist_share_integrity.sql text eol=lf
+migrations/014_email_verification.sql text eol=lf
+migrations/015_password_recovery.sql text eol=lf

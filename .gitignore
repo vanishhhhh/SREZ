@@ -43,3 +43,24 @@
 /backups/
 *.dump
 *.sql.gz
+
+# Reproducible dependencies, generated reports and private local checks.
+node_modules/
+dist/
+*.tsbuildinfo
+playwright-report/
+/mvp-*.results.json
+/recovery-*.results.json
+/scripts/email-final-safety.mjs
+/scripts/email-working-smoke.mjs
+/scripts/verify-email-preservation.mjs
+/scripts/verify-integration-data.mjs
+/scripts/verify-original-data.mjs
+/frontend/docs/previews/
+/demo/catalog/result-*.json
+/demo/catalog/*verified*.json
+/scripts/recovery-preservation-local.mjs
+/scripts/recovery-working-smoke.mjs
+/frontend/docs/MVP_BUNDLE_CHECK.json
+/frontend/docs/MVP_RUNTIME_CHECK.json
+/frontend/docs/MVP_GIT_STATUS.txt

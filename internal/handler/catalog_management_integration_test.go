@@ -65,7 +65,7 @@ func TestPostgresHTTPAuthManagementCatalogIntegration(t *testing.T) {
 	brands := storage.NewBrands(db)
 	h := New(usecase.NewUsers(storage.NewUsers(db)), usecase.NewBrands(brands), usecase.NewProducts(storage.NewProducts(db), brands))
 	h.SetManagement(usecase.NewManagement(storage.NewManagement(db)))
-	if e = h.EnableAuth(usecase.NewAuth(storage.NewAuth(db), security.NewPasswords(2), tokens), tokens, config.Auth{Origin: "http://127.0.0.1:8080", LocalHTTP: true, Attempts: 20}); e != nil {
+	if e = h.EnableAuth(authWithTestInbox(t, h, db, security.NewPasswords(2), tokens), tokens, config.Auth{Origin: "http://127.0.0.1:8080", LocalHTTP: true, Attempts: 20}); e != nil {
 		t.Fatal(e)
 	}
 	call := func(method, path, body, access, csrf string, cookie *http.Cookie, want int) *httptest.ResponseRecorder {
@@ -104,6 +104,7 @@ func TestPostgresHTTPAuthManagementCatalogIntegration(t *testing.T) {
 		body := fmt.Sprintf(`{"email":"%s@example.com","username":"%s","display_name":"%s","password":"cross feature test password"}`, name, name, name)
 		var user publicUserResponse
 		decode(call("POST", "/auth/register", body, "", "", nil, 201), &user)
+		verifyTestAccount(t, h, name+"@example.com")
 		w := call("POST", "/auth/login", fmt.Sprintf(`{"identifier":"%s","password":"cross feature test password"}`, name), "", "", nil, 200)
 		var login usecase.AuthResult
 		decode(w, &login)

@@ -8,22 +8,22 @@
 
 **Результат:** подтверждённых незакрытых Critical/High в проверенном diff не найдено.
 
-| Граница / риск | Проверка и результат |
-| --- | --- |
-| BOLA/IDOR | Avatar actor-only; product/color actual brand определяется SQL; target/input combinations ограничены; cross-user/brand/product/color — реальные негативные тесты |
-| Revoke / parallel RBAC | Writе использует прежние Management.brand/withProduct/authorize; owner-only оформление, active owner/editor product; повторная проверка после S3, revoke во время PUT отклоняет commit |
-| Mass assignment | Строгий JSON, user_id/key/bucket/status/public URL не принимаются; нет route чтения произвольного S3 key |
-| Старые writer обходы | Старый complete — JWT + 410; нет вызова Presign из HTTP flow; profile/brand/product URL writers отклонены; unexpired staging PUT получает 403 от bucket policy |
-| Size / framing | Early Content-Length >5 MiB — 413; missing/chunked — 411; MaxBytesReader + LimitReader независимо ограничивают прочитанные bytes; counter и реальный HEAD подтверждают отсутствие PUT/object у invalid sources |
-| Content safety | Sniff + allowlist + DecodeConfig + полный Decode, 8192/12MP bounds, re-encode без source metadata, opaque JPEG/alpha PNG, ограниченный writer 8 MiB |
-| CPU/RAM / slow clients | Один decoder и два отдельных delivery slots; backend request/response deadlines и server timeouts; slot выдачи удерживается до HTTP write; нет неограниченного body/read buffer |
-| Duplicate / concurrent upload | Durable claim до PUT; конкурирующие реальные HTTP PUT создают одну S3-запись и одну ссылку; повтор complete-result не перепривязывает старый asset |
-| SQL/S3 consistency | Journal до S3; атомарный ready+binding; реальный SQL trigger failure после PUT сохраняет старый avatar; ambiguous successful commit моделируется отдельно unit-тестом, без DELETE живого кандидата |
-| Publication | Existing post-write aggregate checks; последнее фото published color и обязательный logo active brand защищены rollback; queue deletion также откатывается |
-| GC locks / races | Writer parent→request→asset; GC блокирует только terminal/expired unreferenced assets, освобождает asset-lock до update request state и до S3 DELETE; late PUT обрабатывается конечным 24h resweep; выбранный failed DELETE остаётся обязательным |
-| Visibility | Только ready + current reference; avatar self-only; brand/product public по текущему статусу; private/pending/retired unavailable, S3 anonymous GET — 403; no-store/nosniff |
-| Secrets / logging | JSON не содержит bucket/key/credentials/presigned URL; SDK ошибки санитизированы, HTTP generic; entrypoint не печатает keys; автоматическая проверка SeaweedFS stdout/stderr до/после restart |
-| Legacy / migrations | 001–010 не редактировались при исправлении аудита; 009→010 test сохраняет legacy HTTPS URL и controlled retention старых private ready; глобальная HTTPS validation прежняя |
+| Граница / риск                | Проверка и результат                                                                                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BOLA/IDOR                     | Avatar actor-only; product/color actual brand определяется SQL; target/input combinations ограничены; cross-user/brand/product/color — реальные негативные тесты                                                                                  |
+| Revoke / parallel RBAC        | Writе использует прежние Management.brand/withProduct/authorize; owner-only оформление, active owner/editor product; повторная проверка после S3, revoke во время PUT отклоняет commit                                                            |
+| Mass assignment               | Строгий JSON, user_id/key/bucket/status/public URL не принимаются; нет route чтения произвольного S3 key                                                                                                                                          |
+| Старые writer обходы          | Старый complete — JWT + 410; нет вызова Presign из HTTP flow; profile/brand/product URL writers отклонены; unexpired staging PUT получает 403 от bucket policy                                                                                    |
+| Size / framing                | Early Content-Length >5 MiB — 413; missing/chunked — 411; MaxBytesReader + LimitReader независимо ограничивают прочитанные bytes; counter и реальный HEAD подтверждают отсутствие PUT/object у invalid sources                                    |
+| Content safety                | Sniff + allowlist + DecodeConfig + полный Decode, 8192/12MP bounds, re-encode без source metadata, opaque JPEG/alpha PNG, ограниченный writer 8 MiB                                                                                               |
+| CPU/RAM / slow clients        | Один decoder и два отдельных delivery slots; backend request/response deadlines и server timeouts; slot выдачи удерживается до HTTP write; нет неограниченного body/read buffer                                                                   |
+| Duplicate / concurrent upload | Durable claim до PUT; конкурирующие реальные HTTP PUT создают одну S3-запись и одну ссылку; повтор complete-result не перепривязывает старый asset                                                                                                |
+| SQL/S3 consistency            | Journal до S3; атомарный ready+binding; реальный SQL trigger failure после PUT сохраняет старый avatar; ambiguous successful commit моделируется отдельно unit-тестом, без DELETE живого кандидата                                                |
+| Publication                   | Existing post-write aggregate checks; последнее фото published color и обязательный logo active brand защищены rollback; queue deletion также откатывается                                                                                        |
+| GC locks / races              | Writer parent→request→asset; GC блокирует только terminal/expired unreferenced assets, освобождает asset-lock до update request state и до S3 DELETE; late PUT обрабатывается конечным 24h resweep; выбранный failed DELETE остаётся обязательным |
+| Visibility                    | Только ready + current reference; avatar self-only; brand/product public по текущему статусу; private/pending/retired unavailable, S3 anonymous GET — 403; no-store/nosniff                                                                       |
+| Secrets / logging             | JSON не содержит bucket/key/credentials/presigned URL; SDK ошибки санитизированы, HTTP generic; entrypoint не печатает keys; автоматическая проверка SeaweedFS stdout/stderr до/после restart                                                     |
+| Legacy / migrations           | 001–010 не редактировались при исправлении аудита; 009→010 test сохраняет legacy HTTPS URL и controlled retention старых private ready; глобальная HTTPS validation прежняя                                                                       |
 
 Положительный SigV4 control сначала доказывает, что подписанный PUT работает
 в разрешённом тестовом namespace; затем такой же signing flow для staging
@@ -40,22 +40,22 @@ output cap, преждевременное освобождение buffer slot 
 
 ## Остаточные ограничения / решения для production
 
-* Нет распределённых rate limits, user/brand disk quotas и hard CPU sandbox.
+- Нет распределённых rate limits, user/brand disk quotas и hard CPU sandbox.
   Конкретные bounds ограничивают данный процесс, но не заменяют budgets всего сервиса.
-* Codec context не прерывает вычисления посреди Decode/Encode. Pixels/dimensions,
+- Codec context не прерывает вычисления посреди Decode/Encode. Pixels/dimensions,
   slots и bounded input/output ограничивают объём работы; зависимости надо обновлять.
-* Техническая ошибка после claim требует новой загрузки, если commit не был успешен.
+- Техническая ошибка после claim требует новой загрузки, если commit не был успешен.
   Потерянный ответ после успешного commit восстанавливается идемпотентным PUT retry.
-* Тест неоднозначного successful commit — unit fault model, не разрыв реального
+- Тест неоднозначного successful commit — unit fault model, не разрыв реального
   PostgreSQL соединения в точке COMMIT. Реальный SQL rollback после S3 проверен.
-* Нет внешнего browser/CDN/load test. HTTP сценарии используют Gin + httptest,
+- Нет внешнего browser/CDN/load test. HTTP сценарии используют Gin + httptest,
   PostgreSQL и SeaweedFS — реальные изолированные Docker сервисы.
-* Backend управляет выделенным private bucket; его admin credentials находятся
+- Backend управляет выделенным private bucket; его admin credentials находятся
   только на сервере. Production bootstrap/admin и runtime identities стоит разделить.
   Внешние административные изменения ACL/policy/objects находятся вне app RBAC.
-* Audit/tombstone rows сохраняются; cleanup до 100 mandatory +10 resweep/мин должен наблюдаться
+- Audit/tombstone rows сохраняются; cleanup до 100 mandatory +10 resweep/мин должен наблюдаться
   и масштабироваться под нагрузку. Нужен независимый scheduled worker при scale-out.
-* Не выполнены push, merge или миграция пользовательской БД. Пользовательские
+- Не выполнены push, merge или миграция пользовательской БД. Пользовательские
   volumes не подключались к тестам и не удалялись.
 
 ## Повторный review пяти независимых находок

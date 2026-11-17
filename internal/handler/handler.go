@@ -18,6 +18,7 @@ type Handler struct {
 	shopping   *usecase.Shopping
 	orders     *usecase.Orders
 	media      *usecase.Media
+	wishlists  *usecase.Wishlists
 }
 
 func NewWithUsers(users *usecase.Users) *Handler {

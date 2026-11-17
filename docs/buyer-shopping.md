@@ -20,19 +20,19 @@
 
 ## Маршруты
 
-| Метод | Путь | Запрос | Успешный ответ |
-| --- | --- | --- | --- |
-| GET | `/favorites` | без тела | 200, массив сохранённых товаров |
-| POST | `/favorites/:product_id` | без тела | 204, идемпотентное добавление |
-| DELETE | `/favorites/:product_id` | без тела | 204, идемпотентное удаление |
-| GET | `/cart` | без тела | 200, объект корзины |
-| POST | `/cart/items` | `{"product_variant_id":21,"quantity":2}` | 200, итоговая корзина; количество существующей позиции увеличивается |
-| PATCH | `/cart/items/:id` | `{"quantity":3}` | 200, итоговая корзина; количество заменяется абсолютным значением |
-| DELETE | `/cart/items/:id` | без тела | 204; отсутствующая или чужая позиция — 404 |
-| POST | `/orders` | `{}` | 201, один неоплаченный заказ на всю корзину |
-| GET | `/orders` | без тела | 200, собственные заказы от новых к старым |
-| GET | `/orders/:id` | без тела | 200, собственный заказ; чужой или отсутствующий — 404 |
-| POST | `/orders/:id/cancel` | `{}` | 200, собственный отменённый заказ; до истечения 15 минут |
+| Метод  | Путь                     | Запрос                                   | Успешный ответ                                                       |
+| ------ | ------------------------ | ---------------------------------------- | -------------------------------------------------------------------- |
+| GET    | `/favorites`             | без тела                                 | 200, массив сохранённых товаров                                      |
+| POST   | `/favorites/:product_id` | без тела                                 | 204, идемпотентное добавление                                        |
+| DELETE | `/favorites/:product_id` | без тела                                 | 204, идемпотентное удаление                                          |
+| GET    | `/cart`                  | без тела                                 | 200, объект корзины                                                  |
+| POST   | `/cart/items`            | `{"product_variant_id":21,"quantity":2}` | 200, итоговая корзина; количество существующей позиции увеличивается |
+| PATCH  | `/cart/items/:id`        | `{"quantity":3}`                         | 200, итоговая корзина; количество заменяется абсолютным значением    |
+| DELETE | `/cart/items/:id`        | без тела                                 | 204; отсутствующая или чужая позиция — 404                           |
+| POST   | `/orders`                | `{}`                                     | 201, один неоплаченный заказ на всю корзину                          |
+| GET    | `/orders`                | без тела                                 | 200, собственные заказы от новых к старым                            |
+| GET    | `/orders/:id`            | без тела                                 | 200, собственный заказ; чужой или отсутствующий — 404                |
+| POST   | `/orders/:id/cancel`     | `{}`                                     | 200, собственный отменённый заказ; до истечения 15 минут             |
 
 ID — положительные значения int64. Количество — целое JSON-число **от 1 до 100**
 как в запросе, так и в итоговой позиции; для PATCH поле `quantity` обязательно.
@@ -48,8 +48,37 @@ ID — положительные значения int64. Количество �
 
 ```json
 [
-  {"product_id":7,"product":{"id":7,"brand_id":2,"name":"Hoodie","description":"Cotton hoodie","price_kopecks":250000,"category":"hoodie","materials":["cotton"],"status":"published","created_at":"2026-11-15T10:00:00Z","updated_at":"2026-11-15T10:00:00Z","preview_image_url":"https://example.com/front.jpg","brand_name":"Example","brand_slug":"example","is_available":true,"available_colors":["Black"],"available_sizes":["M"],"colors":[{"id":11,"color":"Black","preview_image_url":"https://example.com/front.jpg","is_available":true,"available_sizes":["M"]}]}},
-  {"product_id":8,"product":null}
+  {
+    "product_id": 7,
+    "product": {
+      "id": 7,
+      "brand_id": 2,
+      "name": "Hoodie",
+      "description": "Cotton hoodie",
+      "price_kopecks": 250000,
+      "category": "hoodie",
+      "materials": ["cotton"],
+      "status": "published",
+      "created_at": "2026-11-15T10:00:00Z",
+      "updated_at": "2026-11-15T10:00:00Z",
+      "preview_image_url": "https://example.com/front.jpg",
+      "brand_name": "Example",
+      "brand_slug": "example",
+      "is_available": true,
+      "available_colors": ["Black"],
+      "available_sizes": ["M"],
+      "colors": [
+        {
+          "id": 11,
+          "color": "Black",
+          "preview_image_url": "https://example.com/front.jpg",
+          "is_available": true,
+          "available_sizes": ["M"]
+        }
+      ]
+    }
+  },
+  { "product_id": 8, "product": null }
 ]
 ```
 
@@ -71,12 +100,49 @@ ID — положительные значения int64. Количество �
 
 ```json
 {
-  "items":[
-    {"id":31,"product_variant_id":21,"quantity":2,"product":{"product_id":7,"brand_id":2,"name":"Hoodie","preview_image_url":"https://example.com/front.jpg","color":"Black","size":"M","unit_price_kopecks":250000},"availability":"available","subtotal_kopecks":500000},
-    {"id":32,"product_variant_id":22,"quantity":3,"product":{"product_id":9,"brand_id":3,"name":"Tee","preview_image_url":"https://example.com/tee.jpg","color":"White","size":"L","unit_price_kopecks":100000},"availability":"insufficient_stock","subtotal_kopecks":0},
-    {"id":33,"product_variant_id":null,"quantity":1,"product":null,"availability":"unavailable","subtotal_kopecks":0}
+  "items": [
+    {
+      "id": 31,
+      "product_variant_id": 21,
+      "quantity": 2,
+      "product": {
+        "product_id": 7,
+        "brand_id": 2,
+        "name": "Hoodie",
+        "preview_image_url": "https://example.com/front.jpg",
+        "color": "Black",
+        "size": "M",
+        "unit_price_kopecks": 250000
+      },
+      "availability": "available",
+      "subtotal_kopecks": 500000
+    },
+    {
+      "id": 32,
+      "product_variant_id": 22,
+      "quantity": 3,
+      "product": {
+        "product_id": 9,
+        "brand_id": 3,
+        "name": "Tee",
+        "preview_image_url": "https://example.com/tee.jpg",
+        "color": "White",
+        "size": "L",
+        "unit_price_kopecks": 100000
+      },
+      "availability": "insufficient_stock",
+      "subtotal_kopecks": 0
+    },
+    {
+      "id": 33,
+      "product_variant_id": null,
+      "quantity": 1,
+      "product": null,
+      "availability": "unavailable",
+      "subtotal_kopecks": 0
+    }
   ],
-  "total_kopecks":500000
+  "total_kopecks": 500000
 }
 ```
 
@@ -165,16 +231,36 @@ PVM сохраняет порядок блокировок: бренд → уч�
 
 ```json
 {
-  "id":41,
-  "status":"unpaid",
-  "total_kopecks":600000,
-  "created_at":"2026-11-15T12:00:00Z",
-  "cancel_before":"2026-11-15T12:15:00Z",
-  "cancelled_at":null,
-  "expired_at":null,
-  "items":[
-    {"product_variant_id":21,"product_id":7,"brand_id":2,"product_name":"Hoodie","color":"Black","size":"M","quantity":2,"unit_price_kopecks":250000,"subtotal_kopecks":500000},
-    {"product_variant_id":22,"product_id":9,"brand_id":3,"product_name":"Tee","color":"White","size":"L","quantity":1,"unit_price_kopecks":100000,"subtotal_kopecks":100000}
+  "id": 41,
+  "status": "unpaid",
+  "total_kopecks": 600000,
+  "created_at": "2026-11-15T12:00:00Z",
+  "cancel_before": "2026-11-15T12:15:00Z",
+  "cancelled_at": null,
+  "expired_at": null,
+  "items": [
+    {
+      "product_variant_id": 21,
+      "product_id": 7,
+      "brand_id": 2,
+      "product_name": "Hoodie",
+      "color": "Black",
+      "size": "M",
+      "quantity": 2,
+      "unit_price_kopecks": 250000,
+      "subtotal_kopecks": 500000
+    },
+    {
+      "product_variant_id": 22,
+      "product_id": 9,
+      "brand_id": 3,
+      "product_name": "Tee",
+      "color": "White",
+      "size": "L",
+      "quantity": 1,
+      "unit_price_kopecks": 100000,
+      "subtotal_kopecks": 100000
+    }
   ]
 }
 ```
@@ -357,15 +443,15 @@ DTO не содержит `user_id`, а запросы заказов всегд
 
 ## Ошибки
 
-| Статус | Причина |
-| --- | --- |
-| 400 | Неверные ID или JSON, недопустимые поля, тело у маршрута без тела либо количество вне диапазона 1–100 |
-| 401 | Отсутствующий или недействительный Bearer JWT |
-| 404 | Неизвестный или непубличный вариант либо товар при добавлении; отсутствующая или чужая позиция корзины либо заказ, включая отмену |
-| 409 | Пустая корзина при оформлении, недоступная позиция при оформлении или PATCH, недостаточный остаток, переполнение суммы, закрытое окно отмены |
-| 413 | Тело больше 64 КиБ |
-| 500 | Неожиданная ошибка хранения; клиент получает общее сообщение |
-| 503 | Зависимость корзины или заказов не настроена; обычный запуск настраивает обе |
+| Статус | Причина                                                                                                                                      |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | Неверные ID или JSON, недопустимые поля, тело у маршрута без тела либо количество вне диапазона 1–100                                        |
+| 401    | Отсутствующий или недействительный Bearer JWT                                                                                                |
+| 404    | Неизвестный или непубличный вариант либо товар при добавлении; отсутствующая или чужая позиция корзины либо заказ, включая отмену            |
+| 409    | Пустая корзина при оформлении, недоступная позиция при оформлении или PATCH, недостаточный остаток, переполнение суммы, закрытое окно отмены |
+| 413    | Тело больше 64 КиБ                                                                                                                           |
+| 500    | Неожиданная ошибка хранения; клиент получает общее сообщение                                                                                 |
+| 503    | Зависимость корзины или заказов не настроена; обычный запуск настраивает обе                                                                 |
 
 ## Локальная проверка в PowerShell
 

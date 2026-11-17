@@ -1,0 +1,108 @@
+name: srez-integration
+services:
+  app:
+    build: .
+    environment:
+      SREZ_SMTP_HOST: mailpit
+      SREZ_SMTP_PORT: '1025'
+      SREZ_MAIL_FROM: "${SREZ_MAIL_FROM:-SREZ <no-reply@srez.local>}"
+      SREZ_FRONTEND_BASE_URL: "http://localhost:5174"
+      SREZ_SMTP_TLS: none
+      SREZ_S3_ENDPOINT: http://seaweedfs:8333
+      SREZ_S3_PUBLIC_ENDPOINT: http://127.0.0.1:${SREZ_MEDIA_PORT:-18333}
+      SREZ_S3_REGION: us-east-1
+      SREZ_S3_BUCKET: srez-media
+      SREZ_S3_ACCESS_KEY: "${SREZ_S3_ACCESS_KEY:?generate S3 access key in .env}"
+      SREZ_S3_SECRET_KEY: "${SREZ_S3_SECRET_KEY:?generate S3 secret key in .env}"
+      DATABASE_URL: "postgres://srez:${POSTGRES_PASSWORD:?copy .env.example to .env}@db:5432/srez?sslmode=disable"
+      SREZ_JWT_KEY: "${SREZ_JWT_KEY:?generate independent JWT key in .env}"
+      SREZ_CSRF_KEY: "${SREZ_CSRF_KEY:?generate independent CSRF key in .env}"
+      SREZ_WISHLIST_KEY: "${SREZ_WISHLIST_KEY:?generate independent wishlist key in .env}"
+      SREZ_JWT_ISSUER: "${SREZ_JWT_ISSUER:-srez}"
+      SREZ_JWT_AUDIENCE: "${SREZ_JWT_AUDIENCE:-srez-api}"
+      SREZ_PUBLIC_ORIGIN: "http://localhost:5174"
+      SREZ_AUTH_LOCAL_HTTP: "true"
+      SREZ_AUTH_ATTEMPTS: "100"
+      SREZ_AUTH_HASH_WORKERS: "${SREZ_AUTH_HASH_WORKERS:-2}"
+      SREZ_TRUSTED_PROXIES: "${SREZ_TRUSTED_PROXIES:-}"
+    ports:
+      - "127.0.0.1:${SREZ_API_PORT:-8081}:8080"
+    depends_on:
+      mailpit:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.54@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
+    entrypoint: ["/bin/sh", "/etc/srez/seaweedfs-entrypoint.sh"]
+    command: ["mini", "-dir=/data", "-ip=seaweedfs", "-ip.bind=0.0.0.0", "-s3.port=8333", "-s3.allowedOrigins=http://127.0.0.1:5173,http://localhost:5173", "-bucket=srez-media"]
+    environment:
+      AWS_ACCESS_KEY_ID: "${SREZ_S3_ACCESS_KEY:?generate S3 access key in .env}"
+      AWS_SECRET_ACCESS_KEY: "${SREZ_S3_SECRET_KEY:?generate S3 secret key in .env}"
+    ports:
+      - "127.0.0.1:${SREZ_MEDIA_PORT:-18333}:8333"
+    volumes:
+      - seaweedfs_data:/data
+      - ./deploy/seaweedfs-entrypoint.sh:/etc/srez/seaweedfs-entrypoint.sh:ro
+    healthcheck:
+      # The filer must be serving before S3 can access objects. App additionally
+      # performs an authenticated HeadBucket before accepting media operations.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8888/ && wget -S -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -q '403'"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    stop_grace_period: 30s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: srez
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?copy .env.example to .env}"
+      POSTGRES_DB: srez
+    ports:
+      - "127.0.0.1:${SREZ_DB_PORT:-15432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U srez -d srez"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:5174:8080"
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  mailpit:
+    image: axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: '0'
+      MP_DISABLE_VERSION_CHECK: 'true'
+      MP_BLOCK_REMOTE_CSS_AND_FONTS: 'true'
+      MP_ALLOWED_HOSTS: '127.0.0.1,localhost,mailpit'
+      MP_QUIET: 'true'
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+    volumes:
+      - mailpit_data:/data
+    restart: unless-stopped
+
+volumes:
+  mailpit_data:
+  postgres_data:
+  seaweedfs_data:

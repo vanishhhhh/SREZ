@@ -2,6 +2,11 @@ services:
   app:
     build: .
     environment:
+      SREZ_SMTP_HOST: mailpit
+      SREZ_SMTP_PORT: '1025'
+      SREZ_MAIL_FROM: "${SREZ_MAIL_FROM:-SREZ <no-reply@srez.local>}"
+      SREZ_FRONTEND_BASE_URL: "${SREZ_FRONTEND_BASE_URL:-http://127.0.0.1:5173}"
+      SREZ_SMTP_TLS: none
       SREZ_S3_ENDPOINT: http://seaweedfs:8333
       SREZ_S3_PUBLIC_ENDPOINT: http://127.0.0.1:8333
       SREZ_S3_REGION: us-east-1
@@ -11,6 +16,7 @@ services:
       DATABASE_URL: "postgres://srez:${POSTGRES_PASSWORD:?copy .env.example to .env}@db:5432/srez?sslmode=disable"
       SREZ_JWT_KEY: "${SREZ_JWT_KEY:?generate independent JWT key in .env}"
       SREZ_CSRF_KEY: "${SREZ_CSRF_KEY:?generate independent CSRF key in .env}"
+      SREZ_WISHLIST_KEY: "${SREZ_WISHLIST_KEY:?generate independent wishlist key in .env}"
       SREZ_JWT_ISSUER: "${SREZ_JWT_ISSUER:-srez}"
       SREZ_JWT_AUDIENCE: "${SREZ_JWT_AUDIENCE:-srez-api}"
       SREZ_PUBLIC_ORIGIN: "${SREZ_PUBLIC_ORIGIN:-http://127.0.0.1:8080}"
@@ -21,6 +27,8 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
+      mailpit:
+        condition: service_healthy
       seaweedfs:
         condition: service_healthy
       db:
@@ -63,6 +71,23 @@ services:
       timeout: 3s
       retries: 15
 
+  mailpit:
+    image: axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: '0'
+      MP_DISABLE_VERSION_CHECK: 'true'
+      MP_BLOCK_REMOTE_CSS_AND_FONTS: 'true'
+      MP_ALLOWED_HOSTS: '127.0.0.1,localhost,mailpit'
+      MP_QUIET: 'true'
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+    volumes:
+      - mailpit_data:/data
+    restart: unless-stopped
+
 volumes:
+  mailpit_data:
   postgres_data:
   seaweedfs_data:

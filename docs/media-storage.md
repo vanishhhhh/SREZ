@@ -37,15 +37,15 @@ Handler отвечает за JWT, HTTP framing/deadlines, строгое JSON �
 
 ## Данные и инварианты
 
-| Данные | Назначение |
-| --- | --- |
-| `media_assets` | Физический bucket/key, инициатор, immutable purpose/target, MIME/size нормализованного объекта, даты |
-| `media_upload_requests` | Техническая загрузка, ожидаемые MIME/размер, фактический source_size, pending/processing/complete/rejected, replacement image_id/position |
-| `users.avatar_media_id` | Привязка собственного приватного аватара |
-| `brands.logo_media_id`, `banner_media_id` | Отдельные ссылки оформления бренда |
-| `product_color_images.media_id` | Managed источник; прежние image_id/color_id/position сохранены |
-| `media_references` | View актуальных доменных ссылок, без постоянных HTTP URL |
-| `media_uploads` | Неизменённая по смыслу Phase 1 история, выведенная из нового API |
+| Данные                                    | Назначение                                                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `media_assets`                            | Физический bucket/key, инициатор, immutable purpose/target, MIME/size нормализованного объекта, даты                                      |
+| `media_upload_requests`                   | Техническая загрузка, ожидаемые MIME/размер, фактический source_size, pending/processing/complete/rejected, replacement image_id/position |
+| `users.avatar_media_id`                   | Привязка собственного приватного аватара                                                                                                  |
+| `brands.logo_media_id`, `banner_media_id` | Отдельные ссылки оформления бренда                                                                                                        |
+| `product_color_images.media_id`           | Managed источник; прежние image_id/color_id/position сохранены                                                                            |
+| `media_references`                        | View актуальных доменных ссылок, без постоянных HTTP URL                                                                                  |
+| `media_uploads`                           | Неизменённая по смыслу Phase 1 история, выведенная из нового API                                                                          |
 
 Asset: `processing → ready → deleting → deleted`; отказ/истечение processing
 переходит в deleting через GC. Processing заранее связан с целью и имеет TTL
@@ -67,17 +67,17 @@ Domain сохраняет HTTPS validation. DTO формируют относи�
 
 ## Права и блокировки
 
-* `user_avatar`: target user берётся исключительно из JWT actor; строка users
+- `user_avatar`: target user берётся исключительно из JWT actor; строка users
   блокируется `FOR NO KEY UPDATE`. Это сериализует замену, не блокируя FK KeyShare.
-* `brand_logo`, `brand_banner`: существующий `Management.brand(..., owner=true)`;
+- `brand_logo`, `brand_banner`: существующий `Management.brand(..., owner=true)`;
   нужны active owner и несуспендированный бренд. Editor не получает новых прав.
-* `product_image`: существующий `Management.withProduct` проверяет
+- `product_image`: существующий `Management.withProduct` проверяет
   active owner/editor → фактический brand → product → color. Brand не принимается
   из запроса товара. Проверки выполняются при создании, claim и финальной привязке.
-* Сохраняется порядок brand → membership → product → children → upload → asset.
+- Сохраняется порядок brand → membership → product → children → upload → asset.
   Avatar имеет отдельную user-границу. Квота pending сериализуется advisory lock
   на инициаторе, без захвата чужой user-строки внутри brand-транзакции.
-* Сетевая передача и декодирование не держат SQL-транзакцию. Если права отозваны
+- Сетевая передача и декодирование не держат SQL-транзакцию. Если права отозваны
   во время S3 PUT, финальная транзакция отказывает; объект остаётся приватным
   техническим кандидатом до GC.
 
@@ -98,17 +98,29 @@ Domain сохраняет HTTPS validation. DTO формируют относи�
 content_type (`image/jpeg`, `image/png`, `image/webp`) и size_bytes (1…5242880).
 
 ```json
-{"purpose":"user_avatar","content_type":"image/jpeg","size_bytes":124567}
+{ "purpose": "user_avatar", "content_type": "image/jpeg", "size_bytes": 124567 }
 ```
 
 ```json
-{"purpose":"brand_logo","brand_id":3,"content_type":"image/png","size_bytes":124567}
+{
+  "purpose": "brand_logo",
+  "brand_id": 3,
+  "content_type": "image/png",
+  "size_bytes": 124567
+}
 ```
 
 Для banner purpose — `brand_banner`, те же brand-поля. Только owner.
 
 ```json
-{"purpose":"product_image","product_id":7,"color_id":11,"content_type":"image/jpeg","size_bytes":124567,"position":0}
+{
+  "purpose": "product_image",
+  "product_id": 7,
+  "color_id": 11,
+  "content_type": "image/jpeg",
+  "size_bytes": 124567,
+  "position": 0
+}
 ```
 
 Product upload добавляет изображение и возвращает стабильный image_id.
@@ -145,18 +157,18 @@ Unknown-length/chunked upload получает 411; ложная длина — 
 
 ### 3. PVM и удаление
 
-* `GET /products/:id/colors/:color_id/images`: прежние ID/position/url плюс
+- `GET /products/:id/colors/:color_id/images`: прежние ID/position/url плюс
   `media_id` для managed источника.
-* `POST .../images {"media_id":N}` (200): идемпотентное подтверждение уже созданной upload
+- `POST .../images {"media_id":N}` (200): идемпотентное подтверждение уже созданной upload
   привязки этого цвета; не дублирует изображение и не переносит asset. Опциональный
   position вызывает обычный reorder. Непривязанный/чужой ID не принимается.
-* `PATCH .../images/:image_id {"position":1}`: прежний порядок. media_id допускается
+- `PATCH .../images/:image_id {"position":1}`: прежний порядок. media_id допускается
   лишь как подтверждение текущего источника. Для замены используется новый upload
   с target image_id. Старые create/patch по `url` отвечают 400.
-* `POST .../images/reorder {"image_ids":[2,1]}` и DELETE фото/цвета сохраняют PVM policy.
-* `DELETE /profile/avatar` — убрать свой аватар, без тела.
-* `DELETE /brands/:id/media/brand_logo` или `brand_banner` — owner, без тела.
-* PATCH profile.avatar_url и brand.logo_url/banner_url больше не являются writer API.
+- `POST .../images/reorder {"image_ids":[2,1]}` и DELETE фото/цвета сохраняют PVM policy.
+- `DELETE /profile/avatar` — убрать свой аватар, без тела.
+- `DELETE /brands/:id/media/brand_logo` или `brand_banner` — owner, без тела.
+- PATCH profile.avatar_url и brand.logo_url/banner_url больше не являются writer API.
   Исторические импортные методы/factories остаются для доверенного seed/fixtures;
   HTTP не вызывает их с клиентскими URL.
 
@@ -164,12 +176,12 @@ Unknown-length/chunked upload получает 411; ложная длина — 
 
 `GET /media/assets/:id/content` читает только ready asset с действующей ссылкой:
 
-| Источник | Guest | Авторизованный доступ |
-| --- | --- | --- |
-| Avatar | 404 | Только сам пользователь |
-| Brand logo/banner | Только active brand | Также active member draft/non-suspended brand |
-| Product image | Published product + active brand | Также active member соответствующего non-suspended brand |
-| Processing/deleting/deleted/Phase 1 object | 404 | 404 |
+| Источник                                   | Guest                            | Авторизованный доступ                                    |
+| ------------------------------------------ | -------------------------------- | -------------------------------------------------------- |
+| Avatar                                     | 404                              | Только сам пользователь                                  |
+| Brand logo/banner                          | Только active brand              | Также active member draft/non-suspended brand            |
+| Product image                              | Published product + active brand | Также active member соответствующего non-suspended brand |
+| Processing/deleting/deleted/Phase 1 object | 404                              | 404                                                      |
 
 JWT необязателен только для public GET; переданный неверный JWT даёт 401.
 Приватные изображения React загружает через fetch с Bearer и показывает через

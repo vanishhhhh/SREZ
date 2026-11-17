@@ -1,0 +1,87 @@
+name: SREZ checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Format, build and vet
+        run: |
+          test -z "$(gofmt -l cmd internal migrations)"
+          go build ./...
+          go vet ./...
+          go mod tidy -diff
+      - name: Isolated PostgreSQL, SeaweedFS and Mailpit
+        run: |
+          node frontend/scripts/prepare-local.mjs
+          docker compose -p srez-mvp-tests -f compose.tests.yaml up -d --wait --wait-timeout 120
+          docker build --target build -t srez-mvp-go-check:local .
+      - name: Full Go tests with real infrastructure
+        run: node scripts/qa-go.mjs full
+      - name: Stop test services, retain volumes
+        if: always()
+        run: docker compose -p srez-mvp-tests -f compose.tests.yaml stop
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend
+      - name: Install Chrome for Playwright
+        working-directory: frontend
+        run: npx playwright install --with-deps chrome
+      - name: Start isolated browser environment
+        run: |
+          node frontend/scripts/prepare-local.mjs
+          docker compose -p srez-mvp-qa -f compose.qa.yaml up -d --build --wait --wait-timeout 120
+      - name: All browser scenarios, no production target
+        run: node scripts/qa-browser.mjs all
+      - name: Stop test services, retain volumes
+        if: always()
+        run: docker compose -p srez-mvp-qa -f compose.qa.yaml stop
