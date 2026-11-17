@@ -17,13 +17,13 @@ Commit, push, merge, rebase и миграция пользовательской
 unsafe controls на пользовательских bucket не требовалось. Ниже указаны исходные
 наблюдения и ожидаемое поведение; адаптированные проверки теперь находятся в репозитории.
 
-| ID | Подтверждённая причина и исходный результат | Исправление | Новый проверенный результат |
-| --- | --- | --- | --- |
-| AUD-M01 Medium | Startup сохранял внешний public Allow; private avatar proxy=404, anonymous S3 GET/List=200 | GetBucketAcl + консервативный анализ разрешений policy до SetMedia/Run; unverifiable privacy закрывает startup; безопасные external statements сохранены | Fresh/private bucket и private external policy принимаются. Реальные public GetObject/ListBucket/ACL controls дают anonymous=200, затем initialization отказывает. Private=403. ACL 403/501/неполный XML закрывают startup без policy mutation. Старый staging PUT остаётся 403 |
-| AUD-M02 Medium | Два stalled anonymous TCP GET занимали оба shared slots, upload=429 | Один reserved upload/decoder slot, два delivery slots, без очереди; delivery slot держится до завершения HTTP write | Те же два stalled TCP GET: authenticated upload=200; 20 запросов gallery burst=429; disconnect освобождает GET slots. Upload TCP disconnect и 10s timeout освобождают decoder slot; следующая загрузка=200. Unit cancellation и race PASS |
-| AUD-M03 Medium | Из 6100 due deleted tombstones выбирались только первые 100, свежий expired processing не попадал в batch; resweep бесконечный | 011: deleted_at/reconcile_until/resweep_after, отдельные бюджеты 100 mandatory +10 resweep, 24h окно, индексы и backlog; выбранный resweep становится deleting для durable retry | 6100 tombstones +1 fresh: fresh выбран, 10 resweep, live ref не выбран. DELETE failure повторён; late PUT удалён. Failed resweep повторяется даже после конца окна. После окна work=0, 6101 audit rows сохранены |
-| AUD-L01 Low | GET body не читался: truncated HTTP response с заявленной длиной 16 проходил restart test | Полный bounded GET <=8 MiB+1, read errors, точная длина и SHA-256; реальный normalized ready avatar с SQL reference | Truncated HTTP body и altered same-length payload отвергаются. Реальный volume restart: полный hash до/после совпал; proxy read по действующей SQL reference тоже совпал |
-| AUD-L02 Low | Adapter удалял из runtime bucket B, хотя metadata указывала A, после чего A-row ошибочно становился deleted | Перед read/upload claim/finalize/Delete проверяется saved bucket == active bucket; legacy cleanup тоже сверяет location; явный sentinel и безопасный operational log | A→B без переноса: read/cleanup возвращают config error; A-row не deleted, файл A сохранён и совпадающий key в B не удалён. При неизменном bucket весь flow проходит |
+| ID             | Подтверждённая причина и исходный результат                                                                                    | Исправление                                                                                                                                                                      | Новый проверенный результат                                                                                                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AUD-M01 Medium | Startup сохранял внешний public Allow; private avatar proxy=404, anonymous S3 GET/List=200                                     | GetBucketAcl + консервативный анализ разрешений policy до SetMedia/Run; unverifiable privacy закрывает startup; безопасные external statements сохранены                         | Fresh/private bucket и private external policy принимаются. Реальные public GetObject/ListBucket/ACL controls дают anonymous=200, затем initialization отказывает. Private=403. ACL 403/501/неполный XML закрывают startup без policy mutation. Старый staging PUT остаётся 403 |
+| AUD-M02 Medium | Два stalled anonymous TCP GET занимали оба shared slots, upload=429                                                            | Один reserved upload/decoder slot, два delivery slots, без очереди; delivery slot держится до завершения HTTP write                                                              | Те же два stalled TCP GET: authenticated upload=200; 20 запросов gallery burst=429; disconnect освобождает GET slots. Upload TCP disconnect и 10s timeout освобождают decoder slot; следующая загрузка=200. Unit cancellation и race PASS                                       |
+| AUD-M03 Medium | Из 6100 due deleted tombstones выбирались только первые 100, свежий expired processing не попадал в batch; resweep бесконечный | 011: deleted_at/reconcile_until/resweep_after, отдельные бюджеты 100 mandatory +10 resweep, 24h окно, индексы и backlog; выбранный resweep становится deleting для durable retry | 6100 tombstones +1 fresh: fresh выбран, 10 resweep, live ref не выбран. DELETE failure повторён; late PUT удалён. Failed resweep повторяется даже после конца окна. После окна work=0, 6101 audit rows сохранены                                                                |
+| AUD-L01 Low    | GET body не читался: truncated HTTP response с заявленной длиной 16 проходил restart test                                      | Полный bounded GET <=8 MiB+1, read errors, точная длина и SHA-256; реальный normalized ready avatar с SQL reference                                                              | Truncated HTTP body и altered same-length payload отвергаются. Реальный volume restart: полный hash до/после совпал; proxy read по действующей SQL reference тоже совпал                                                                                                        |
+| AUD-L02 Low    | Adapter удалял из runtime bucket B, хотя metadata указывала A, после чего A-row ошибочно становился deleted                    | Перед read/upload claim/finalize/Delete проверяется saved bucket == active bucket; legacy cleanup тоже сверяет location; явный sentinel и безопасный operational log             | A→B без переноса: read/cleanup возвращают config error; A-row не deleted, файл A сохранён и совпадающий key в B не удалён. При неизменном bucket весь flow проходит                                                                                                             |
 
 ## Архитектура и бюджет
 
@@ -76,19 +76,19 @@ bucket ACL (он предоставляет ListBucket, а не автомати
 Только containers/network этого проекта остановлены и удалены через down без -v.
 Volumes сохранены; пользовательские volumes не подключались и не удалялись.
 
-| Проверка | Результат |
-| --- | --- |
-| gofmt -l internal cmd migrations | PASS, пустой вывод |
-| go test ./... -count=1 | PASS с реальными PostgreSQL + SeaweedFS |
-| go vet ./... | PASS |
-| git diff --check | PASS |
-| docker compose config --quiet, также media-test.yaml | PASS с временными сгенерированными env; .env не изменён |
-| docker build -t srez-media-audit-fixes-review . | PASS, linux/arm64 |
-| scripts/test-media.sh | PASS, весь suite + focused security/regressions + restart |
-| go test -race ./internal/usecase ./internal/handler ./internal/storage ./internal/objectstorage -count=1 | PASS на реальных test services, race не обнаружены |
-| Исходные auth/refresh/CSRF/RBAC/PVM/catalog/cart/wishlist/orders/reservations/history проверки | PASS в общем PostgreSQL suite |
-| Migration 009 upgrade + runner, 001–010 checksums | PASS; новая 011, старые файлы не редактировались |
-| S3 credentials в logs | Не найдены до/после restart |
+| Проверка                                                                                                 | Результат                                                 |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| gofmt -l internal cmd migrations                                                                         | PASS, пустой вывод                                        |
+| go test ./... -count=1                                                                                   | PASS с реальными PostgreSQL + SeaweedFS                   |
+| go vet ./...                                                                                             | PASS                                                      |
+| git diff --check                                                                                         | PASS                                                      |
+| docker compose config --quiet, также media-test.yaml                                                     | PASS с временными сгенерированными env; .env не изменён   |
+| docker build -t srez-media-audit-fixes-review .                                                          | PASS, linux/arm64                                         |
+| scripts/test-media.sh                                                                                    | PASS, весь suite + focused security/regressions + restart |
+| go test -race ./internal/usecase ./internal/handler ./internal/storage ./internal/objectstorage -count=1 | PASS на реальных test services, race не обнаружены        |
+| Исходные auth/refresh/CSRF/RBAC/PVM/catalog/cart/wishlist/orders/reservations/history проверки           | PASS в общем PostgreSQL suite                             |
+| Migration 009 upgrade + runner, 001–010 checksums                                                        | PASS; новая 011, старые файлы не редактировались          |
+| S3 credentials в logs                                                                                    | Не найдены до/после restart                               |
 
 Полный suite: handler 19.761s, storage 18.574s, objectstorage 0.699s,
 usecase 1.302s. Race: handler 36.974s, storage 18.890s, objectstorage 2.228s,
@@ -124,22 +124,22 @@ Race suite не обнаружил data races. Review не заменяет prod
 
 ## Остаточные ограничения
 
-* Не осталось подтверждённых открытых AUD-M01/M02/M03/L01/L02. Исходные Medium/Low
+- Не осталось подтверждённых открытых AUD-M01/M02/M03/L01/L02. Исходные Medium/Low
   устранены в согласованной модели одного bucket и локального MVP.
-* Runtime S3 identity пока admin; bootstrap/runtime разделение и регулярная
+- Runtime S3 identity пока admin; bootstrap/runtime разделение и регулярная
   проверка drift policy/ACL нужны перед production. Внешний admin может поменять
   policy уже после startup; постоянного мониторинга сейчас нет.
-* S3 startup failure по-прежнему блокирует весь API и order worker. Это отдельный
+- S3 startup failure по-прежнему блокирует весь API и order worker. Это отдельный
   availability follow-up, не менялся в данной задаче.
-* Нет hard CPU preemption codec, distributed rate limits, disk quotas, CDN,
+- Нет hard CPU preemption codec, distributed rate limits, disk quotas, CDN,
   публичного load test и независимого масштабируемого GC worker.
-* Finite 24h reconciliation предполагает bounded backend/SDK writes. Долгий outage
+- Finite 24h reconciliation предполагает bounded backend/SDK writes. Долгий outage
   GC/S3 или внешняя запись спустя дни требуют operator inventory reconciliation.
   Resweep eligibility раз в час не означает SLA при переполненной очереди;
   backlog/age нужно наблюдать. Выбранные failed DELETE продолжают retries.
-* Неоднозначный успешный COMMIT проверен unit fault model, а не реальным разрывом
+- Неоднозначный успешный COMMIT проверен unit fault model, а не реальным разрывом
   PostgreSQL TCP точно в COMMIT. Реальный rollback после S3 проверен отдельно.
-* Audit history сохраняется; retention/архивация требуют отдельного решения.
+- Audit history сохраняется; retention/архивация требуют отдельного решения.
 
 ## Файлы текущего исправления
 

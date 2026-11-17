@@ -4,16 +4,16 @@ SREZ использует Go, Gin, PostgreSQL и sqlx. Входные HTTP-да�
 
 ## Слои
 
-| Путь | Ответственность |
-| --- | --- |
-| `cmd/app/main.go` | конфигурация, соединение, миграции, сборка зависимостей, HTTP |
-| `internal/config` | HTTP_ADDR, DATABASE_URL; auth keys, origin, cookie mode и лимиты |
-| `internal/handler` | маршруты, разбор запроса, DTO, HTTP-статусы |
-| `internal/usecase` | сценарии, интерфейсы репозиториев, межсущностные проверки |
-| `internal/entities` | инварианты, нормализация, создание/восстановление, переходы статусов |
-| `internal/storage` | параметризованный SQL, преобразование строк БД, транзакции |
-| `migrations` | встроенные версионируемые SQL и runner |
-| `cmd/seed`, `internal/devseed` | отдельная явная загрузка демонстрационных данных |
+| Путь                           | Ответственность                                                      |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `cmd/app/main.go`              | конфигурация, соединение, миграции, сборка зависимостей, HTTP        |
+| `internal/config`              | HTTP_ADDR, DATABASE_URL; auth keys, origin, cookie mode и лимиты     |
+| `internal/handler`             | маршруты, разбор запроса, DTO, HTTP-статусы                          |
+| `internal/usecase`             | сценарии, интерфейсы репозиториев, межсущностные проверки            |
+| `internal/entities`            | инварианты, нормализация, создание/восстановление, переходы статусов |
+| `internal/storage`             | параметризованный SQL, преобразование строк БД, транзакции           |
+| `migrations`                   | встроенные версионируемые SQL и runner                               |
+| `cmd/seed`, `internal/devseed` | отдельная явная загрузка демонстрационных данных                     |
 
 Пользователи хранятся через Users usecase/repository. Каталог использует BrandRepository и ProductRepository, объявленные на уровне usecase. Пакеты `project.go` и GET /projects сохранены как часть предыдущего учебного задания.
 
@@ -43,14 +43,14 @@ DTO бренда содержит id, name, slug, description, logo_url, banner_
 
 Все идентификаторы — BIGINT identity; цена хранится целым BIGINT в копейках, даты — TIMESTAMPTZ.
 
-| Таблица | Данные и ограничения |
-| --- | --- |
-| `users` | профиль, Argon2id для регистрации, legacy-хеш ! сохранён; уникальные email/username |
-| `brands` | данные бренда; contacts/appearance разложены на текстовые колонки; статусы draft/active/suspended; уникальный непустой slug |
-| `products` | FK brand_id, цена >=0, materials TEXT[], категории и статусы draft/published/hidden |
-| `product_colors` | FK product_id, color, уникальный `(product_id, color_key)` |
+| Таблица                | Данные и ограничения                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `users`                | профиль, Argon2id для регистрации, legacy-хеш ! сохранён; уникальные email/username                                            |
+| `brands`               | данные бренда; contacts/appearance разложены на текстовые колонки; статусы draft/active/suspended; уникальный непустой slug    |
+| `products`             | FK brand_id, цена >=0, materials TEXT[], категории и статусы draft/published/hidden                                            |
+| `product_colors`       | FK product_id, color, уникальный `(product_id, color_key)`                                                                     |
 | `product_color_images` | стабильный уникальный BIGINT identity id (005), FK цвета, URL, позиция 0–9; уникальные URL и DEFERRABLE PK(color_id, position) |
-| `product_variants` | FK цвета, size, stock BIGINT >=0, sku; уникальный `(product_color_id, size_key)` |
+| `product_variants`     | FK цвета, size, stock BIGINT >=0, sku; уникальный `(product_color_id, size_key)`                                               |
 
 CHECK также защищают порядок updated_at/created_at. Индексы покрывают FK и публичные выборки. Каскадного удаления нет. У нескольких draft-брендов может отсутствовать slug, как разрешает домен. Уникальность SKU не введена: такого доменного инварианта нет.
 
@@ -80,26 +80,26 @@ Runner рассчитан на транзакционный DDL; CREATE INDEX CO
 
 ### Решения и статус
 
-| Компонент | Решение | Статус |
-| --- | --- | --- |
-| Password hashing | Argon2id, 19 MiB, 2 прохода, parallelism 1, случайная соль 128 бит | Implemented |
-| Access token | HS256 JWT, 15 минут; обязательны sub/iss/aud/iat/exp/jti/sid | Implemented |
-| JWT signing | независимый случайный ключ >=256 бит из окружения | Implemented |
-| Access storage | только память будущего React; не cookie/localStorage/sessionStorage | Planned: frontend отсутствует |
-| Refresh token | непрозрачный случайный токен 256 бит | Implemented |
-| Refresh client storage | HttpOnly cookie | Implemented |
-| Refresh server storage | SHA-256; история хешей до удаления оператором | Implemented |
-| Refresh lifetime | абсолютные 7 дней, ротация не продлевает | Implemented |
-| Refresh rotation | транзакция и блокировка строки сессии | Implemented |
-| Refresh replay | 5 секунд: отказ 409 без отзыва; позже: отзыв всей сессии | Implemented |
-| CSRF | HMAC отдельным ключом от ID сессии, Origin и Fetch Metadata | Implemented |
-| Production cookie | __Host-srez_refresh, Secure, HttpOnly, SameSite=Strict, Path=/, без Domain | Implemented |
-| Authentication | Bearer middleware, строгая проверка JWT | Implemented |
-| User authorization | профиль только по доверенному sub; legacy /users отключены | Implemented |
-| Frontend | отдельное React-приложение | Planned |
-| Backend / production origin | отдельный API за reverse proxy на едином origin | API Implemented; proxy Planned |
-| CORS | не нужен для единого origin; заголовки CORS не добавляются | Implemented |
-| Logout | отзыв refresh-сессии, удаление cookie | Implemented |
+| Компонент                   | Решение                                                                    | Статус                         |
+| --------------------------- | -------------------------------------------------------------------------- | ------------------------------ |
+| Password hashing            | Argon2id, 19 MiB, 2 прохода, parallelism 1, случайная соль 128 бит         | Implemented                    |
+| Access token                | HS256 JWT, 15 минут; обязательны sub/iss/aud/iat/exp/jti/sid               | Implemented                    |
+| JWT signing                 | независимый случайный ключ >=256 бит из окружения                          | Implemented                    |
+| Access storage              | только память React; не cookie/localStorage/sessionStorage                 | Implemented locally            |
+| Refresh token               | непрозрачный случайный токен 256 бит                                       | Implemented                    |
+| Refresh client storage      | HttpOnly cookie                                                            | Implemented                    |
+| Refresh server storage      | SHA-256; история хешей до удаления оператором                              | Implemented                    |
+| Refresh lifetime            | абсолютные 7 дней, ротация не продлевает                                   | Implemented                    |
+| Refresh rotation            | транзакция и блокировка строки сессии                                      | Implemented                    |
+| Refresh replay              | 5 секунд: отказ 409 без отзыва; позже: отзыв всей сессии                   | Implemented                    |
+| CSRF                        | HMAC отдельным ключом от ID сессии, Origin и Fetch Metadata                | Implemented                    |
+| Production cookie           | __Host-srez_refresh, Secure, HttpOnly, SameSite=Strict, Path=/, без Domain | Implemented                    |
+| Authentication              | Bearer middleware, строгая проверка JWT                                    | Implemented                    |
+| User authorization          | профиль только по доверенному sub; legacy /users отключены                 | Implemented                    |
+| Frontend                    | существующее React + TypeScript + Vite приложение                          | Implemented locally            |
+| Backend / production origin | отдельный API за reverse proxy на едином origin                            | API Implemented; proxy Planned |
+| CORS                        | не нужен для единого origin; заголовки CORS не добавляются                 | Implemented                    |
+| Logout                      | отзыв refresh-сессии, удаление cookie                                      | Implemented                    |
 
 ### Пароли, аккаунты и адаптеры
 
@@ -113,14 +113,14 @@ Argon2id ограничен семафором (по умолчанию 2 выч
 
 ### Жизненный цикл
 
-1. Register принимает строгий JSON, валидирует Origin и поля, сохраняет новый пользовательский Argon2id-хеш. Сессия автоматически не выдаётся.
-2. Login проверяет пароль, создаёт независимую серверную сессию, случайный refresh и JWT, возвращает access_token/csrf_token в JSON и ставит HttpOnly refresh-cookie.
+1. Register принимает строгий JSON, валидирует Origin и поля, сохраняет новый пользовательский Argon2id-хеш, требование подтверждения и hash одноразового email-токена в одной транзакции. После commit отправляет письмо. Сессия автоматически не выдаётся; отказ SMTP сохраняет аккаунт.
+2. Login проверяет пароль и допуск аккаунта по email, затем создаёт независимую серверную сессию, случайный refresh и JWT, возвращает access_token/csrf_token в JSON и ставит HttpOnly refresh-cookie. Старые required=false аккаунты сохраняют вход, новые required=true должны подтвердить почту.
 3. Middleware принимает только Bearer JWT, HS256, правильные issuer/audience и обязательные корректные claims. Время жизни не более 15 минут; sub — канонический положительный int64; jti/sid — случайные 256-битные идентификаторы. JWT не содержит email, паролей, refresh или прав на бренд.
-4. GET /profile читает только sub проверенного JWT; PATCH /profile обновляет только display_name/avatar_url этого пользователя через существующий Users usecase. user_id/другие поля запрещены. Все /users HTTP-маршруты отключены, включая чтение списка. Старые методы сохранены для внутренней совместимости/тестов, но не зарегистрированы в рабочем роутере. Моковый профиль существует только в тестах.
-5. После перезагрузки страницы access JWT утрачен. Будущий frontend запрашивает GET /auth/csrf с cookie, получает HMAC(ID сессии) и вызывает POST /auth/refresh с X-CSRF-Token. GET не требует access JWT, не меняет БД и выдаёт токен только для текущего действующего refresh. Все auth/profile ответы имеют Cache-Control: no-store.
+4. GET /profile читает только sub проверенного JWT и возвращает реальный статус email; PATCH /profile обновляет только display_name этого пользователя через существующий Users usecase. Аватар изменяется через Media API; avatar_url/user_id/email_verified/другие поля запрещены. Все /users HTTP-маршруты отключены, включая чтение списка. Старые методы сохранены для внутренней совместимости/тестов, но не зарегистрированы в рабочем роутере. Моковый профиль существует только в тестах.
+5. После перезагрузки страницы access JWT утрачен. Frontend запрашивает GET /auth/csrf с cookie, получает HMAC(ID сессии) и вызывает POST /auth/refresh с X-CSRF-Token. GET не требует access JWT, не меняет БД и выдаёт токен только для текущего действующего refresh. Все auth/profile ответы имеют Cache-Control: no-store.
 6. Refresh сначала проверяет Origin и CSRF, затем под FOR UPDATE проверяет сессию и историю хеша, помечает прежний хеш использованным и вставляет новый. В транзакции существует только один текущий хеш; новый access выдаётся после commit. Абсолютный expires_at не меняется. При утрате ответа после commit клиент может потерять сессию и должен войти повторно: сервер не хранит исходный refresh для восстановления ответа.
-7. Второй запрос со старым refresh в течение 5 секунд получает 409 без cookie/нового JWT и без отзыва. Поздний replay отзывает сессию, включая текущий refresh. Сервер не может надёжно отличить украденный токен от запоздавшего легитимного запроса. Grace-окно также не гарантирует обнаружения атаки внутри этих 5 секунд. Будущий frontend должен координировать refresh между вкладками и не повторять старую cookie бесконечно.
-8. Logout проверяет ту же CSRF-привязку и отзывает только эту сессию. Повтор с той же cookie/CSRF даёт 204; после удаления cookie новый logout даёт 401. Отозванный refresh не работает. **Уже выданный access JWT остаётся действительным до 15 минут**: проверки отзыва в middleware нет.
+7. Второй запрос со старым refresh в течение 5 секунд получает 409 без cookie/нового JWT и без отзыва. Поздний replay отзывает сессию, включая текущий refresh. Сервер не может надёжно отличить украденный токен от запоздавшего легитимного запроса. Grace-окно также не гарантирует обнаружения атаки внутри этих 5 секунд. Frontend должен координировать refresh между вкладками и не повторять старую cookie бесконечно.
+8. Logout проверяет ту же CSRF-привязку и отзывает только эту сессию. Повтор с той же cookie/CSRF даёт 204; после удаления cookie новый logout даёт 401. Отозванный refresh не работает. **Уже выданный access JWT отклоняется после отзыва сессии при следующей проверке middleware**. Срок JWT до15 минут остаётся дополнительной границей; уже начатый запрос не отменяется задним числом.
 9. Истёкшие сессии не ротируются; login создаёт новую сессию. Автоматической очистки истории пока нет. Для production потребуется retention job и лимит числа сессий пользователя.
 
 ```mermaid
@@ -145,32 +145,32 @@ sequenceDiagram
 
 Локальный HTTP разрешается только точным SREZ_AUTH_LOCAL_HTTP=true и origin на localhost/loopback; имя cookie тогда srez_refresh_local, Secure=false. Иначе допустим только HTTPS, cookie использует __Host- и Secure. Очистка повторяет имя/Path/Domain/Secure/SameSite. Срок cookie — оставшийся абсолютный срок сессии. Продакшен-значений ключей/fallback в исходниках нет, отсутствующие/некорректные ключи блокируют запуск приложения.
 
-Same-Origin Policy ограничивает чтение ресурсов браузерным JS; CORS регулирует исключения для такого чтения. SameSite ограничивает отправку cookie между сайтами, но сайт не равен origin. CSRF-защита проверяет конкретный запрос на сервере; JWT аутентифицирует Bearer. CORS/SameSite не заменяют CSRF или авторизацию. План: https://srez.ru/ — React, /api/* — Go за reverse proxy; браузер видит один origin, CORS не требуется. В локальной разработке будущий React может использовать dev proxy. Ни frontend, ни proxy сейчас не реализованы.
+Same-Origin Policy ограничивает чтение ресурсов браузерным JS; CORS регулирует исключения для такого чтения. SameSite ограничивает отправку cookie между сайтами, но сайт не равен origin. CSRF-защита проверяет конкретный запрос на сервере; JWT аутентифицирует Bearer. CORS/SameSite не заменяют CSRF или авторизацию. План: https://srez.ru/ — React, /api/* — Go за reverse proxy; браузер видит один origin, CORS не требуется. В локальной интеграционной копии React использует Vite proxy: localhost:5174, /api с rewrite на Go8081 и /media без rewrite. changeOrigin:false сохраняет Origin; проверки CSRF/JWT не отключены.
 
 ### Threat Model
 
-| Угроза | Механизм | Ограничения |
-| --- | --- | --- |
-| XSS | access только в памяти; refresh HttpOnly | XSS может читать access и CSRF, инициировать запросы; frontend escaping/CSP ещё Planned |
-| CSRF / login CSRF | точный Origin, JSON, Fetch Metadata; session HMAC для cookie-операций | same-origin XSS обходит; CLI может задать Origin, но должен владеть токенами |
-| JWT tampering / algorithm confusion | JWT library, HS256 allowlist, подпись, обязательные claims | компрометация ключа позволяет подделку |
-| Token theft | TLS в production, HttpOnly/Secure/Strict cookie, refresh только SHA-256 в БД | JWT доступен до TTL; клиентская машина может быть скомпрометирована |
-| Refresh replay | история хешей, rotation, отзыв после 5 секунд | задержанный легитимный replay тоже может отозвать сессию |
-| Brute force | Argon2id, локальный IP limiter, bounded hashing | нет распределённого/аккаунтного limiter; production требует усиления |
-| User enumeration | одинаковая ошибка login, dummy hash; /users отключён | register конфликт раскрывает занятость; timing не абсолютно одинаков |
-| IDOR/BOLA | профиль только по sub; legacy write отключены; PVM проверяет полную иерархию под brand-lock | права проверяются по актуальной БД, а не ролям из JWT |
-| Race conditions | row lock, unique current refresh, DB unique аккаунтов | frontend обязан координировать вкладки; возможна потеря ответа |
-| Session fixation | новая random session/refresh при login | несколько активных сессий допустимы |
-| Небезопасные cookie | production __Host-, Secure, HttpOnly, Strict; явный локальный режим | защита требует корректного HTTPS/proxy |
-| Ошибки CORS | заголовки CORS не выдаются, точный Origin | reverse proxy не должен добавлять wildcard/credentials |
-| Signing key compromise | независимые ключи из окружения, нет fallback | смена JWT-ключа инвалидирует access; смена CSRF-ключа требует получения нового CSRF; ротация операционная |
-| Утечки логов | тела/пароли/токены не логируются, ошибки SQL не выдаются клиенту | оператор не должен логировать Authorization/Cookie на proxy или выводить env |
+| Угроза                              | Механизм                                                                                    | Ограничения                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| XSS                                 | access только в памяти; refresh HttpOnly                                                    | XSS может читать access и CSRF, инициировать запросы; React escaping и локальный nginx CSP реализованы; память не устраняет XSS |
+| CSRF / login CSRF                   | точный Origin, JSON, Fetch Metadata; session HMAC для cookie-операций                       | same-origin XSS обходит; CLI может задать Origin, но должен владеть токенами                                                    |
+| JWT tampering / algorithm confusion | JWT library, HS256 allowlist, подпись, обязательные claims                                  | компрометация ключа позволяет подделку                                                                                          |
+| Token theft                         | TLS в production, HttpOnly/Secure/Strict cookie, refresh только SHA-256 в БД                | JWT отклоняется по revoked session; клиентская машина может быть скомпрометирована                                              |
+| Refresh replay                      | история хешей, rotation, отзыв после 5 секунд                                               | задержанный легитимный replay тоже может отозвать сессию                                                                        |
+| Brute force                         | Argon2id, локальный IP limiter, bounded hashing                                             | нет распределённого/аккаунтного limiter; production требует усиления                                                            |
+| User enumeration                    | одинаковая ошибка login, dummy hash; /users отключён                                        | register конфликт раскрывает занятость; timing не абсолютно одинаков                                                            |
+| IDOR/BOLA                           | профиль только по sub; legacy write отключены; PVM проверяет полную иерархию под brand-lock | права проверяются по актуальной БД, а не ролям из JWT                                                                           |
+| Race conditions                     | row lock, unique current refresh, DB unique аккаунтов                                       | frontend обязан координировать вкладки; возможна потеря ответа                                                                  |
+| Session fixation                    | новая random session/refresh при login                                                      | несколько активных сессий допустимы                                                                                             |
+| Небезопасные cookie                 | production __Host-, Secure, HttpOnly, Strict; явный локальный режим                         | защита требует корректного HTTPS/proxy                                                                                          |
+| Ошибки CORS                         | заголовки CORS не выдаются, точный Origin                                                   | reverse proxy не должен добавлять wildcard/credentials                                                                          |
+| Signing key compromise              | независимые ключи из окружения, нет fallback                                                | смена JWT-ключа инвалидирует access; смена CSRF-ключа требует получения нового CSRF; ротация операционная                       |
+| Утечки логов                        | тела/пароли/токены не логируются, ошибки SQL не выдаются клиенту                            | оператор не должен логировать Authorization/Cookie на proxy или выводить env                                                    |
 
 ### Компромиссы и границы
 
-JWT упрощает отдельный API и stateless access-проверку, но не даёт немедленного logout и не подтверждает права на бренд. Серверные сессии без JWT остаются допустимой более простой альтернативой. Refresh непрозрачный, потому что все нужные состояние/отзыв уже в БД; SHA-256 подходит только для случайных высокоэнтропийных токенов, не для паролей. HttpOnly не мешает JS отправлять запросы. LocalStorage/sessionStorage сохраняют украденный JS-токен дольше и не используются; память также не устраняет XSS.
+JWT подтверждает подписанную личность, а middleware дополнительно проверяет активную серверную сессию. Logout, reset и обнаруженный refresh replay отзывают access при следующем запросе; права на бренд всё равно берутся из PostgreSQL. Серверные сессии без JWT остаются допустимой более простой альтернативой. Refresh непрозрачный, потому что все нужные состояние/отзыв уже в БД; SHA-256 подходит только для случайных высокоэнтропийных токенов, не для паролей. HttpOnly не мешает JS отправлять запросы. LocalStorage/sessionStorage сохраняют украденный JS-токен дольше и не используются; память также не устраняет XSS.
 
-Implemented означает покрытие существующими автоматическими проверками, но не независимую сертификацию безопасности. Planned: React, reverse proxy, CSP, email verification/recovery, распределённый limiter, cleanup/retention и управление сессиями. PVM реализован в существующей RBAC-границе, подробности ниже. Неподтверждённый email регистрации пока нельзя использовать как доказательство владения для восстановления доступа. Публичный запуск до отдельного AppSec-ревью не рекомендуется.
+Implemented означает покрытие существующими автоматическими проверками, но не независимую сертификацию безопасности. Локальные nginx/CSP, email verification и password recovery реализованы; production инфраструктура, распределённый общий auth limiter, cleanup/retention и управление сессиями остаются отдельными задачами. Email quota уже сохраняется в PostgreSQL. PVM реализован в существующей RBAC-границе, подробности ниже. Старый required=false аккаунт не доказывает владение email; для восстановления доступа требуется отдельный безопасный процесс. Публичный запуск до отдельного AppSec-ревью не рекомендуется.
 
 Источники решений: [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), [JWT library API](https://pkg.go.dev/github.com/golang-jwt/jwt/v5).
 
@@ -180,14 +180,14 @@ Implemented означает покрытие существующими авт�
 
 **Implemented:** PostgreSQL memberships, private endpoints, приглашения, отзыв, транзакционная object-level authorization. JWT подтверждает личность, а не текущие полномочия бренда. В JWT роли брендов не добавлены. Все private endpoints используют Bearer middleware; usecase повторно проверяет роль/статус в БД внутри транзакции.
 
-| Операция | Guest | User без membership | Active editor | Active owner |
-| --- | --- | --- | --- | --- |
-| Публичный каталог | да | да | да | да |
-| Создать новый бренд | нет | да | да | да |
-| Свои бренды / manage | нет | только свои memberships | свой бренд | свой бренд |
-| Настройки/publish/unpublish бренда | нет | нет | нет | да |
-| Пригласить/отозвать editor, список участников | нет | нет | нет | да |
-| Draft/редактирование/публикация товаров | нет | нет | свой бренд | свой бренд |
+| Операция                                      | Guest | User без membership     | Active editor | Active owner |
+| --------------------------------------------- | ----- | ----------------------- | ------------- | ------------ |
+| Публичный каталог                             | да    | да                      | да            | да           |
+| Создать новый бренд                           | нет   | да                      | да            | да           |
+| Свои бренды / manage                          | нет   | только свои memberships | свой бренд    | свой бренд   |
+| Настройки/publish/unpublish бренда            | нет   | нет                     | нет           | да           |
+| Пригласить/отозвать editor, список участников | нет   | нет                     | нет           | да           |
+| Draft/редактирование/публикация товаров       | нет   | нет                     | свой бренд    | свой бренд   |
 
 Invited/declined/revoked не дают editor-прав. Для suspended бренда операции управления товарами запрещены. Manage бренда позволяет участнику увидеть состояние блокировки; изменение настроек/publish/unpublish suspended запрещено. Публикация товара требует active бренда, draft можно готовить в draft/active бренде.
 
@@ -233,19 +233,19 @@ Strict JSON и лимит 64 КиБ сохраняются. POST создани�
 
 ### Threat model
 
-| Угроза | Механизм | Ограничение |
-| --- | --- | --- |
-| BOLA/IDOR | поиск фактического бренда товара, membership того же бренда, проверка под lock | доверенный SQL-оператор вне модели API |
-| BFLA | отдельные owner-only действия и editor/owner операции, deny by default | глобальных admin/seller ролей нет |
-| Privilege escalation | owner создаётся только с новым брендом; роли/ownership не принимаются в JSON | ownership transfer Planned, не скрытый endpoint |
-| Mass assignment | отдельные DTO, unknown fields запрещены, статусы отдельными действиями | null-поля PATCH трактуются как пропущенные |
-| TOCTOU / revoke race | brand → membership → product → children, одна транзакция | сериализация операций бренда снижает параллелизм |
-| Гонки приглашений/публикации | domain transitions, locks, PK/unique | проигравший запрос получает конфликт состояния |
-| Захват legacy brand | отсутствие membership/backfill API и автоматического владельца | нужен ручной доверенный процесс |
+| Угроза                       | Механизм                                                                       | Ограничение                                      |
+| ---------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| BOLA/IDOR                    | поиск фактического бренда товара, membership того же бренда, проверка под lock | доверенный SQL-оператор вне модели API           |
+| BFLA                         | отдельные owner-only действия и editor/owner операции, deny by default         | глобальных admin/seller ролей нет                |
+| Privilege escalation         | owner создаётся только с новым брендом; роли/ownership не принимаются в JSON   | ownership transfer Planned, не скрытый endpoint  |
+| Mass assignment              | отдельные DTO, unknown fields запрещены, статусы отдельными действиями         | null-поля PATCH трактуются как пропущенные       |
+| TOCTOU / revoke race         | brand → membership → product → children, одна транзакция                       | сериализация операций бренда снижает параллелизм |
+| Гонки приглашений/публикации | domain transitions, locks, PK/unique                                           | проигравший запрос получает конфликт состояния   |
+| Захват legacy brand          | отсутствие membership/backfill API и автоматического владельца                 | нужен ручной доверенный процесс                  |
 
 ### Следующий этап
 
-**Implemented:** полный CRUD цветов, изображений и вариантов с теми же locks/проверкой ProductPublication; новый draft можно полностью подготовить через HTTP. **Planned:** frontend для координации токенов и приглашений; отдельный аудит Auth+RBAC+PVM. Нет ownership transfer, email-рассылки или глобального admin. Существующие ограничения JWT/logout, refresh grace и локального auth limiter остаются в разделе Authentication.
+**Implemented:** полный CRUD цветов, изображений и вариантов с теми же locks/проверкой ProductPublication; новый draft можно полностью подготовить через HTTP. **Implemented locally:** frontend с координацией токенов, приглашениями и PVM. **Planned:** отдельный аудит Auth+RBAC+PVM. Нет ownership transfer, email-рассылки или глобального admin. Существующие ограничения JWT/logout, refresh grace и локального auth limiter остаются в разделе Authentication.
 
 ## Product Variant Management
 
@@ -258,7 +258,6 @@ Management.withProduct находит фактический бренд, под 
 Публичные DTO сохраняют URL-массивы, а management-DTO изображений содержат id/product_color_id/url/position. Публичная загрузка каталога по-прежнему ограничена тремя SQL-запросами, детальная карточка использует прежний snapshot. CRUD обновляет updated_at родительского товара только после успешной проверки.
 
 Контракты, схема взаимодействия, ошибки, тесты и Windows PowerShell: [product-variant-management.md](product-variant-management.md).
-
 
 ### Финальные меры аудита и отложенный deployment hardening
 
@@ -429,3 +428,37 @@ media proxy URL для managed записей. Ни HTTP URL, ни CDN hostname 
 slots; startup консервативно проверяет ACL/policy; runtime проверяет сохранённый
 bucket. Миграция 011 отделяет обязательную очистку (100) от конечного resweep (10,
 24 часа), с наблюдаемым backlog. [Обоснования и регрессии](media-storage-audit-fixes.md).
+
+## Локальный frontend и интеграция, 17.11.2026
+
+Существующий React/TypeScript/Vite перенесён в отдельную integration-repository на main5133b878 без изменения исходной feature-ветки и её данных. Запуск и версии: [frontend README](../frontend/README.md); проверки, backup и ограничения: [integration report](../frontend/docs/INTEGRATION_REPORT.md).
+
+Auth access JWT находится только в памяти, refresh остаётся HttpOnly. Single-flight, Web Locks, generation guards и CSRF/Origin сохранены. Приватный buyer state очищается при смене личности; межвкладочные события не содержат токенов.
+
+Media transport поддерживает JSON upload registration и raw File PUT. Запрещённые URL writers из profile/brand PATCH удалены. Управляемые изображения читаются через Go, приватные — Bearer → Blob URL с cleanup; общая очередь учитывает серверные delivery slots. Браузер к S3 не обращается.
+
+Buyer UI использует существующие shopping/orders usecases. Cart содержит product_variant_id и quantity; цены/итоги исключительно серверные. Checkout перечитывает корзину, POST /orders отправляет {}, двойное действие блокируется; неизвестный результат ведёт к истории без автоматического повтора. Резерв неоплаченный, срок cancel_before; poll/cancel перечитывают серверный status/stock.
+
+Изолированный Compose srez-integration использует API8081, DB15432, storage18333 и frontend localhost5174. Новые volumes srez-integration_postgres_data/seaweedfs_data не пересекаются с team-repository_postgres_data. Исходная БД остаётся на миграциях001–005; 006–011 применены только в новой восстановленной копии.
+
+## Локальный MVP: вишлисты, студия и запуск (17.11.2026)
+
+В текущей интеграционной копии завершены дополнительные этапы 5–7; [отчёт](../frontend/docs/MVP_REPORT.md), [контракты вишлистов](wishlists.md), [Windows запуск](../frontend/README.md). Сведения прежних этапов выше сохраняются как история развития.
+
+Wishlist следует тем же слоям handler → usecase → entities/repository → SQL. Добавлены только миграции 012–013. Приватные запросы ограничены owner из Bearer-сессии; публичный запрос требует случайный capability token и повторно фильтрует опубликованные товары активных брендов. Поиск по SHA-256; зашифрованное восстановление ссылки владельцем использует отдельный стабильный SREZ_WISHLIST_KEY. Ограничения и reorder сериализуются блокировками, чтение — согласованный пакетный snapshot. Public DTO отделён от owner DTO.
+
+React переиспользует существующие transport/session/Media/ProductCard. Добавлены features/wishlists и features/dashboard/Layout. Старые /studio маршруты сохранены, owner/editor ограничения остаются на Go. Router переведён на Data Router для useBlocker; общий реестр несохранённых форм защищает переходы/back/unload. useFormDraft синхронизирует серверный ответ, только если пользователь не изменил draft. Media upload показывает preview и требует явного действия; URL и выбранные файлы освобождаются при завершении.
+
+Рабочий frontend собирается Vite и выдаётся локальным nginx-контейнером на localhost:5174. Только /api и /media идут в Go; Origin не заменяется. Docker DNS upstream переопределяется после смены IP app-контейнера. CSP, no-referrer и логи без URL/cookie защищают shared capabilities; шрифты отдаются с того же origin. Vite остаётся опциональным dev server.
+
+Окружения: srez-integration (5174/8081/15432/18333), srez-mvp-qa (5175/8082/15433/18334), srez-mvp-tests (только DB15434/S318335). У каждого свои volumes; оригинальная team-repository и DB5432 не используются тестами. Изменения метаданных Management применяют время не ранее сохранённого updated_at, как уже делали PVM/Media; сроки заказов/refresh не меняются. Выпуск JWT отступает на одну секунду в iat и exp, сохраняя строгую проверку и максимум15 минут, чтобы выдержать воспроизведённый субсекундный шаг часов без leeway для истёкшего токена.
+
+## Подтверждение email (17.11.2026)
+
+В существующий Auth добавлен EmailVerification usecase с интерфейсом MailSender. Repository атомарно создаёт pending user + hash challenge и подтверждает email; SMTP запускается только после commit. MailSender реализован отдельным internal/mailer через SMTP, text/HTML, timeout5s и проверяемый TLS для внешнего провайдера. Новая014 сохраняет legacy users required=false/date=NULL, новые registration=true. Login проверяет email после пароля; CreateSession/Rotate дополнительно проверяют eligibility в PostgreSQL. Argon2id, JWT/CSRF/refresh rotation сохранены.
+
+Resend ротирует challenge под user lock, сохраняет account/IP quotas в PostgreSQL и возвращает uniform202 без обещания доставки; отправка асинхронная in-memory, без plaintext outbox. Frontend fragment очищается до router, секрет остаётся только в памяти страницы, подтверждение только POST по кнопке. Mailpit1.34.0 закреплён digest, имеет отдельные mailbox volumes/loopback ports для working, QA и Go tests. Контракты, лимиты и Windows команды — в [email-verification.md](email-verification.md).
+
+## Password Recovery и немедленный отзыв
+
+Миграция015 добавляет purpose-separated password_reset_tokens и persistent IP quota. Сброс использует общий MailSender/SMTP и Argon2 semaphore; под user lock атомарно меняет hash, погашает challenge и отзывает все сессии. Login CreateSession сверяет ожидаемый password_hash, refresh соблюдает user → session lock order. Bearer проверяет session ID/user/expiry/revocation/email одним indexed SELECT, timeout2s, без stale cache. Pool ограничен20 соединениями. Новый reset не подтверждает email и не создаёт сессию. [Подробный контракт](account-recovery.md), [весь API](api-reference.md), [ревизия](project-review.md).

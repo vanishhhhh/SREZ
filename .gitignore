@@ -61,3 +61,6 @@ playwright-report/
 /demo/catalog/*verified*.json
 /scripts/recovery-preservation-local.mjs
 /scripts/recovery-working-smoke.mjs
+/frontend/docs/MVP_BUNDLE_CHECK.json
+/frontend/docs/MVP_RUNTIME_CHECK.json
+/frontend/docs/MVP_GIT_STATUS.txt
