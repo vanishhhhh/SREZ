@@ -39,9 +39,13 @@ for (const file of files) {
       flushes.forEach(flush => flush());
       const plain = all.replace(/\u001b\[[0-9;]*m/g, '');
       const passed = [...plain.matchAll(/^\s*(\d+) passed\b/gm)].reduce((sum, match) => sum + Number(match[1]), 0);
+      if(code!==0||passed===0)console.error(all);
       resolveRun({ file, exitCode: code ?? 1, passed });
     });
   });
+  // The CI runner has no access to local log files after failure. Emit only
+  // already-redacted diagnostics; do not upload private browser artifacts.
+  if(result.exitCode!==0)console.error(`Browser spec failed: ${file}. Sanitized diagnostics are in ${log}`);
   results.push(result);
 }
 const scrub = dir => { try { for (const e of readdirSync(dir, { withFileTypes: true })) { const path = join(dir, e.name); if (e.isDirectory()) scrub(path); else if (/\.(md|json|txt)$/.test(e.name)) { const raw = readFileSync(path, 'utf8'), safe = redact(raw); if (safe !== raw) writeFileSync(path, safe); } } } catch (error) { if (error.code !== 'ENOENT') throw error; } };

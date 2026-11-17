@@ -67,6 +67,8 @@ Go тесты используют отдельную БД и случайные
 
 Seaweed restart-persistence проверялся раньше и не запускался заново на этом этапе, поэтому не включён в passed. Нагрузочный benchmark, внешний SMTP и независимый AppSec не выполнялись. Remote CI не объявляется зелёным по локальному прогону.
 
+Первый GitHub run успешно выполнил backend и frontend, но обнаружил ошибку в подготовке public/seller fixtures на чистом окружении: SREZ Origin наследовался запросами Mailpit. Исправлен отдельный почтовый APIRequestContext без наследования auth/Origin, без ослабления server checks; диагностика runner стала доступна в CI с редактированием секретов. Сценарий повторён на новых пустых test volumes. Результат следующего удалённого run фиксируется отдельно в итоговом сообщении/publication proof.
+
 ### Сохранность
 
 До изменений создан и проверен приватный backup390 файлов, включая116 frontend и untracked; node_modules/dist/logs исключены. PostgreSQL custom dump126281 байт, SHA-25638e8591fb1e358053c31b64b4ea154117aecba8e46d139087722fe0f60ad338d, TOC проверен. Резервная копия не входит в Git.

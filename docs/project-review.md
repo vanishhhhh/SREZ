@@ -46,6 +46,8 @@
 
 ## Проверенные security границы
 
+Дополнительная проверка чистого CI выявила P2 в `frontend/e2e/verification-fixture.ts`: Mailpit-запросы наследовали глобальный SREZ Origin некоторых test contexts и корректно отклонялись почтовым сервером. На ранее заполненной QA базе этот путь мог скрываться повторным использованием fixtures. Mailpit теперь получает собственный APIRequestContext без SREZ Origin/cookies/Authorization; проверки серверов не ослаблялись. Полный сценарий дополнительно воспроизведён с новыми пустыми PostgreSQL/SeaweedFS/Mailpit volumes, прежние QA volumes сохранены. Runner выводит только отредактированную диагностику при ошибке, без публикации private browser artifacts.
+
 - Auth: password gate, dummy Argon2, JWT claims, refresh single-flight/rotation/grace/replay/absolute expiry, HttpOnly cookie, exact Origin/CSRF, logout/recovery revocation.
 - Verification/recovery: 32 crypto bytes, hash-only DB, отдельные назначения, TTL/one use, SQL rollback, concurrent requests, persistent quotas, no auto-login и общие нейтральные ответы.
 - RBAC/IDOR: foreign brand/product/variant/media/wishlist/cart/order IDs, user_id/role/price mass assignment; invited/revoked editor права не получает.
