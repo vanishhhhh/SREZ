@@ -72,7 +72,18 @@ test('seller: owner creates brand and product entirely in UI, publishes, invites
     await uploadInUI(page, 'Добавить фотографию', 65);
     await uploadInUI(page, 'Добавить фотографию', 115);
     await expect(page.locator('.editor-image')).toHaveCount(2);
+    const newCover = await page
+      .locator('.editor-image .media')
+      .nth(1)
+      .getAttribute('data-media-src');
+    expect(!!newCover).toBe(true);
     await page.getByRole('button', { name: 'Переместить фото 2 раньше', exact: true }).click();
+    // Positions change asynchronously. Verify the actual new cover before
+    // selecting a position-based action, rather than racing the old first tile.
+    await expect(page.locator('.editor-image .media').first()).toHaveAttribute(
+      'data-media-src',
+      newCover!,
+    );
     await page.getByRole('button', { name: 'Заменить фото 1', exact: true }).click();
     await uploadInUI(page, 'Заменить фото 1', 85);
     await expect(page.locator('.editor-image')).toHaveCount(2);

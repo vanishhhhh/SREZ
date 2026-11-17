@@ -71,6 +71,8 @@ Seaweed restart-persistence проверялся раньше и не запус
 
 ### Сохранность
 
+Второй удалённый run прошёл backend/frontend и35/36 browser, выявив гонку seller fixture между reorder и выбором «фото1». Добавлено ожидание фактического нового cover URL перед заменой. Проверки не исключались, timeouts/retries не увеличивались; локальный seller сценарий повторяется перед отправкой исправления.
+
 До изменений создан и проверен приватный backup390 файлов, включая116 frontend и untracked; node_modules/dist/logs исключены. PostgreSQL custom dump126281 байт, SHA-25638e8591fb1e358053c31b64b4ea154117aecba8e46d139087722fe0f60ad338d, TOC проверен. Резервная копия не входит в Git.
 
 Все прежние значения .env сохранены, recovery не потребовала новых ключей. Old migration SQL и journal строки не переписаны. Четыре уже deleted media tombstones получили только штатное продвижение resweep_after существующим GC. Добавлена одна собственная recovery_smoke запись, она сохранена; пароль reset проверялся только на ней. Existing PostgreSQL/SeaweedFS/Mailpit volumes не пересозданы и не удалены.
