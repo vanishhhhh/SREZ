@@ -13,6 +13,29 @@ const redact = text => text.replace(/((?:\/api)?\/wishlists\/shared\/|\/w\/)[A-Z
   .replace(/((?:authorization|set-cookie|cookie):)[^\r\n]*/gi, '$1 [redacted]');
 const env = { ...process.env, CI: '1', SREZ_E2E_BASE_URL: 'http://localhost:5175', SREZ_PUBLIC_E2E_URL: 'http://localhost:5175', SREZ_AUTH_E2E_LIVE: '1', SREZ_PUBLIC_E2E_LIVE: '1', SREZ_BUYER_E2E_LIVE: '1', SREZ_MVP_E2E_LIVE: '1', SREZ_EXPIRY_DB: 'srez-mvp-qa-db-1' };
 const cli = resolve(frontend, 'node_modules/@playwright/test/cli.js');
+async function restartQAApp() {
+  const container = 'srez-mvp-qa-app-1';
+  const inspected = spawnSync('docker', ['inspect', '--format', '{{json .Config.Labels}}', container], { encoding: 'utf8', timeout: 10000 });
+  if (inspected.status !== 0) throw Error('Isolated QA app is unavailable; no service was restarted');
+  const labels = JSON.parse(inspected.stdout);
+  if (labels['com.docker.compose.project'] !== 'srez-mvp-qa' || labels['com.docker.compose.service'] !== 'app') {
+    throw Error('QA app identity mismatch; no service was restarted');
+  }
+  // Each spec gets its own in-memory auth/IP window. Keep the actual limiter,
+  // all account/IP quotas in PostgreSQL, sessions, media and volumes intact.
+  // A container restart retains its address and avoids recreating DB/services.
+  const restarted = spawnSync('docker', ['restart', '--timeout', '10', container], { encoding: 'utf8', timeout: 20000 });
+  if (restarted.status !== 0) throw Error('Isolated QA app restart failed');
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch('http://localhost:5175/api/health', { signal: AbortSignal.timeout(1500), cache: 'no-store' });
+      if (response.ok && (await response.json()).status === 'ok') return;
+    } catch { /* Wait for startup and proxy readiness, never retry test actions. */ }
+    await new Promise(resolveWait => setTimeout(resolveWait, 200));
+  }
+  throw Error('Isolated QA app did not become ready through the frontend proxy');
+}
 let files;
 if (scope === 'all') {
   // Discover every active spec, then give each its own native process. This
@@ -25,6 +48,7 @@ if (scope === 'all') {
 } else files = [scope + '.spec.ts'];
 const results = [];
 for (const file of files) {
+  await restartQAApp();
   out.write(`\nQA group: ${file}\n`);
   const result = await new Promise(resolveRun => {
     const child = spawn(process.execPath, [cli, 'test', `e2e/${file}`, '--reporter=list', '--output=' + resolve(frontend, 'test-results', scope + '-' + file.replace('.spec.ts', ''))], { cwd: frontend, env, stdio: ['ignore', 'pipe', 'pipe'] });

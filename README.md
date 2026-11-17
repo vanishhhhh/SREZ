@@ -201,6 +201,8 @@ docker compose -p srez-mvp-qa -f compose.qa.yaml stop
 
 Обычные go build ./..., go vet ./..., go test ./... доступны на хосте. Без TEST_DATABASE_URL интеграционные tests явно skipped; такой прогон не доказывает работу PostgreSQL. Полный QA runner передаёт test DSN/S3/Mailpit через env без вывода секретов. Browser runner открывает отдельный процесс на spec, автоматически обнаруживает все tests, не исключает recovery и не повторяет упавшие автоматически. Требуется установленный Chrome; на новом компьютере `npm.cmd --prefix frontend exec -- playwright install chrome`.
 
+Перед каждым browser spec runner проверяет Compose-метки и перезапускает только `srez-mvp-qa-app-1`, затем ждёт `/api/health` через frontend proxy. Это изолирует общий минутный auth/IP-бюджет между наборами: быстрый CI иначе превышает 100 запросов и получает 429 в последних tests. Backend-лимиты не меняются; PostgreSQL, постоянные email-квоты, сессии и volumes сохраняются.
+
 CI проверяет Go format/build/vet/tidy и полный suite с реальной test инфраструктурой; отдельно npm ci/typecheck/Oxlint/format/unit/build и browser QA. Actions имеют contents:read, не используют production secrets и не выполняют deployment. Первый удалённый run нужно оценивать отдельно от локальных результатов.
 
 [Итог этого этапа](docs/release-report.md), [review и приоритеты](docs/project-review.md). Исторические frontend отчёты описывают свои этапы, их старые количества тестов не являются текущими.
