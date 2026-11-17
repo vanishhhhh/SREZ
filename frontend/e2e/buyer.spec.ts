@@ -114,7 +114,15 @@ test('buyer: real login → favorite → cart quantity/remove → unpaid reserve
     await expect(page.locator('.cart-line')).toHaveCount(1);
     const quantity = page.locator('.quantity-form input');
     await quantity.fill('2');
+    const updateResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' &&
+        /^\/api\/cart\/items\/\d+$/.test(new URL(response.url()).pathname),
+    );
     await page.getByRole('button', { name: 'Обновить', exact: true }).click();
+    const updated = await updateResponse;
+    expect(updated.status()).toBe(200);
+    expect((await updated.json()).items[0].quantity).toBe(2);
     await expect(page.locator('.cart-total strong')).toContainText('7 101');
     await page.getByRole('button', { name: 'Удалить позицию', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Пока ни одной вещи' })).toBeVisible();
