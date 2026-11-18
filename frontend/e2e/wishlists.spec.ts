@@ -248,9 +248,7 @@ test('collection forms: route guard, beforeunload protection, empty state and mo
     const user = await account(api, 'draft');
     await login(page, user);
     await page.goto('/wishlists');
-    await expect(
-      page.getByRole('heading', { name: 'Твой стиль начинается с одной вещи' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'У вас пока нет вишлистов' })).toBeVisible();
     await page.goto('/wishlists/new');
     await page.getByLabel('Название вишлиста', { exact: true }).fill('Несохранённая идея');
     await page.locator('header').getByRole('link', { name: 'Каталог', exact: true }).click();
