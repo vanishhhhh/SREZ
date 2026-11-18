@@ -1,12 +1,16 @@
 import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const target = resolve(root, '.env');
-if (!existsSync(target)) copyFileSync(resolve(root, '.env.example'), target);
-const original = readFileSync(target, 'utf8');
+const exists = existsSync(target);
+if (exists && process.argv.includes('--create-only')) {
+  console.log('Существующий .env оставлен без изменений.');
+  process.exit(0);
+}
+const original = readFileSync(exists ? target : resolve(root, '.env.example'), 'utf8');
 const lines = original.replace(/^\uFEFF/, '').split(/\r?\n/);
 const values = [];
 for (const key of ['SREZ_JWT_KEY', 'SREZ_CSRF_KEY', 'SREZ_WISHLIST_KEY']) {
@@ -50,10 +54,11 @@ for (const key of ['SREZ_S3_ACCESS_KEY', 'SREZ_S3_SECRET_KEY']) {
   }
 }
 const output = lines.join('\n');
-if (output !== original) writeFileSync(target, output, { mode: 0o600 });
+if (!exists) writeFileSync(target, output, { flag: 'wx', mode: 0o600 });
+else if (output !== original) writeFileSync(target, output);
 console.log(
   'Локальный .env готов. Существующие значения сохранены; пустые ключи заполнены независимо. Секреты не выводятся.',
 );
 console.log(
-  'Для интеграционной копии используйте compose.integration.yaml и http://localhost:5174.',
+  'Используйте compose.integration.yaml. По умолчанию frontend доступен на http://localhost:5174.',
 );
