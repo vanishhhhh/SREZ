@@ -146,9 +146,33 @@ test.describe('public storefront against real Go and isolated PostgreSQL', () =>
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');
     await page.screenshot({ path: 'test-results/public-home-16-10.jpg' });
-    await expect(page.locator('.hero h1')).toContainText('РЯДА.');
+    await expect(page.getByRole('heading', { level: 1, name: 'SREZ' })).toBeVisible();
+    await expect(page.locator('.home-cover img')).toHaveAttribute('fetchpriority', 'high');
+    await expect
+      .poll(() =>
+        page.locator('.home-cover img').evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+    const storefront = page.getByRole('navigation', { name: 'Разделы витрины' });
+    await expect(storefront.getByRole('link', { name: 'Каталог' })).toHaveAttribute(
+      'href',
+      '/catalog',
+    );
+    await expect(storefront.getByRole('link', { name: 'Бренды' })).toHaveAttribute(
+      'href',
+      '/brands',
+    );
     await expect(page.locator('#latest .product-tile')).toHaveCount(4);
-    await expect(page.locator('.hoodie-collection .product-tile').first()).toBeVisible();
+    await expect(page.getByRole('main').getByRole('heading', { level: 2 })).toHaveText([
+      'Новые поступления',
+      'Бренды',
+    ]);
+    const brandCards = page.getByRole('link').and(page.locator('.brand-tile'));
+    await expect(brandCards.first()).toHaveAttribute('href', /^\/brands\//);
+    const footer = page.getByRole('contentinfo');
+    await expect(footer.getByRole('link')).toHaveCount(1);
+    await footer.getByRole('link', { name: 'Наверх' }).click();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     await page
       .locator('.category-links')
       .getByRole('link', { name: 'Футболки', exact: true })
@@ -300,10 +324,19 @@ test.describe('public storefront against real Go and isolated PostgreSQL', () =>
       await noOverflow(page);
     }
     await page.goto('/catalog');
-    await page.getByRole('button', { name: /^Фильтры/ }).click();
-    await expect(page.getByLabel('Категория', { exact: true })).toBeVisible();
-    await page.getByLabel('Категория', { exact: true }).selectOption('tshirt');
+    const filters = page.getByRole('button', { name: /^Фильтры/ });
+    const category = page.getByLabel('Категория', { exact: true });
+    await filters.focus();
+    await filters.press('Enter');
+    await expect(category).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(filters).toBeFocused();
+    await expect(category).toBeHidden();
+    await filters.press('Enter');
+    await category.selectOption('tshirt');
     await page.getByRole('button', { name: 'Показать вещи' }).click();
+    await expect(filters).toBeFocused();
+    await expect(category).toBeHidden();
     const categoryResponse = await request.get(
       '/api/products?category=tshirt&sort=newest&limit=12',
     );
@@ -316,11 +349,16 @@ test.describe('public storefront against real Go and isolated PostgreSQL', () =>
     await expect(page.locator('.product-tile h3')).toHaveText(
       actualCategory.map((p: { name: string }) => p.name),
     );
-    await page.getByRole('button', { name: 'Открыть меню' }).click();
-    await page
-      .getByRole('navigation', { name: 'Основная навигация' })
-      .getByRole('link', { name: 'Бренды', exact: true })
-      .click();
+    const menu = page.getByRole('button', { name: 'Открыть меню' });
+    const navigation = page.getByRole('navigation', { name: 'Основная навигация' });
+    await menu.focus();
+    await menu.press('Enter');
+    await expect(navigation.getByRole('link', { name: 'Каталог' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeFocused();
+    await expect(navigation).toBeHidden();
+    await menu.click();
+    await navigation.getByRole('link', { name: 'Бренды', exact: true }).click();
     await expect(page).toHaveURL(/\/brands$/);
     await page.screenshot({ path: 'test-results/public-mobile.jpg', fullPage: true });
     for (const width of [768, 1920]) {

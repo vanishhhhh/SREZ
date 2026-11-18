@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api';
@@ -16,6 +16,30 @@ export function CatalogPage() {
   const [filters, setFilters] = useState<CatalogFilters>(() => filtersFrom(params));
   const [filterError, setFilterError] = useState('');
   const [open, setOpen] = useState(false);
+  const filterPanel = useRef<HTMLElement>(null);
+  const filterToggle = useRef<HTMLButtonElement>(null);
+  const firstFilter = useRef<HTMLSelectElement>(null);
+  const closeFilters = useCallback(() => {
+    setOpen(false);
+    filterToggle.current?.focus();
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    firstFilter.current?.focus();
+    function escapeFilters(event: KeyboardEvent) {
+      const activeElement = document.activeElement;
+      if (
+        !event.defaultPrevented &&
+        event.key === 'Escape' &&
+        (filterPanel.current?.contains(activeElement) || activeElement === filterToggle.current)
+      ) {
+        event.preventDefault();
+        closeFilters();
+      }
+    }
+    document.addEventListener('keydown', escapeFilters);
+    return () => document.removeEventListener('keydown', escapeFilters);
+  }, [open, closeFilters]);
   useEffect(() => {
     setFilters(filtersFrom(new URLSearchParams(key)));
     setFilterError('');
@@ -38,7 +62,7 @@ export function CatalogPage() {
     try {
       const next = applyFilters(filters, params);
       setParams(next);
-      setOpen(false);
+      if (open) closeFilters();
     } catch (err) {
       setFilterError(errorText(err));
     }
@@ -65,11 +89,10 @@ export function CatalogPage() {
   );
   return (
     <div className="container page">
-      <PageTitle eyebrow="ВЫБИРАЙ ПО СВОИМ ПРАВИЛАМ" title="Каталог">
-        Одежда, в которой остаёшься собой.
-      </PageTitle>
+      <PageTitle title="Каталог" />
       <div className="catalog-layout">
         <aside
+          ref={filterPanel}
           id="catalog-filters"
           className={'catalog-filters ' + (open ? 'catalog-filters--open' : '')}
         >
@@ -82,6 +105,7 @@ export function CatalogPage() {
           <form onSubmit={apply}>
             <Field label="Категория">
               <select
+                ref={firstFilter}
                 aria-label="Категория"
                 value={filters.category}
                 onChange={(e) => field('category', e.target.value)}
@@ -166,8 +190,9 @@ export function CatalogPage() {
             <span>{feed.data && !feed.loading ? countThings(feed.data.total) : 'Каталог'}</span>
             <div>
               <button
+                ref={filterToggle}
                 className="filter-toggle text-button"
-                onClick={() => setOpen(!open)}
+                onClick={open ? closeFilters : () => setOpen(true)}
                 aria-expanded={open}
                 aria-controls="catalog-filters"
               >

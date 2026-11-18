@@ -109,11 +109,6 @@ export function DashboardLayout() {
           </>
         )}
         <div className="dashboard-sidebar__foot">
-          <p>
-            Независимый бренд.
-            <br />
-            Полный контроль.
-          </p>
           <Link className="text-link" to="/catalog">
             Вернуться к вещам <Icon name="diagonal" size={16} />
           </Link>

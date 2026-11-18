@@ -8,11 +8,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
       <Link to="/" className="wordmark" aria-label="SREZ — на главную">
         SREZ<span>®</span>
       </Link>
-      <section className="verification-card">
-        <p className="eyebrow">СВОЙ КРУГ / SREZ</p>
-        {children}
-      </section>
-      <p className="mono verification-footer">НЕЗАВИСИМОСТЬ НАЧИНАЕТСЯ С ВЫБОРА.</p>
+      <section className="verification-card">{children}</section>
     </main>
   );
 }

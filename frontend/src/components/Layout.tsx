@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useMatches } from 'react-router-dom';
 import { useAuth } from '../auth/Auth';
 import { Avatar, Icon } from './ui';
 import { PageBoundary } from './PageBoundary';
-import { categories } from '../lib/types';
 import { useBuyer } from '../features/buyer/Buyer';
 
 export function Layout() {
@@ -11,26 +10,44 @@ export function Layout() {
   const buyer = useBuyer();
   const owned = auth.status === 'authenticated' && buyer.owner === auth.user?.id;
   const location = useLocation();
+  const storefront = useMatches().some((match) => match.handle === 'storefront');
   const [menu, setMenu] = useState(false);
   const [year] = useState(() => new Date().getFullYear());
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const navigation = useRef<HTMLElement>(null);
+  const signInLabel =
+    auth.status === 'checking'
+      ? 'Проверяем вход'
+      : auth.status === 'unavailable'
+        ? 'Проверить вход'
+        : 'Войти';
+  useEffect(() => {
+    if (!menu) return;
+    navigation.current?.querySelector('a')?.focus();
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      setMenu(false);
+      menuButton.current?.focus();
+    }
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [menu]);
   useEffect(() => {
     setMenu(false);
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
   return (
-    <>
+    <div className="site-layout" id="site-top" tabIndex={-1}>
       <a className="skip-link" href="#main">
         К содержимому
       </a>
-      <div className="announcement">
-        <span>НЕЗАВИСИМЫЕ БРЕНДЫ. ЛИЧНЫЙ ВЫБОР.</span>
-        <span>SREZ — ВНЕ ОБЩЕГО РЯДА</span>
-      </div>
       <header className="header">
         <Link to="/" className="wordmark" aria-label="SREZ — главная">
           SREZ<span>®</span>
         </Link>
         <nav
+          ref={navigation}
+          id="main-navigation"
           className={menu ? 'main-nav main-nav--open' : 'main-nav'}
           aria-label="Основная навигация"
         >
@@ -38,9 +55,7 @@ export function Layout() {
           <NavLink to="/brands">Бренды</NavLink>
           <NavLink to="/wishlists">Вишлисты</NavLink>
           <NavLink to="/orders">Мои заказы</NavLink>
-          <NavLink to="/studio">
-            Студия бренда <Icon name="diagonal" size={14} />
-          </NavLink>
+          <NavLink to="/studio">Студия бренда</NavLink>
         </nav>
         <div className="header__right">
           <Link
@@ -69,7 +84,7 @@ export function Layout() {
             )}
           </Link>
           {auth.status === 'authenticated' && auth.user ? (
-            <Link to="/account" className="account-link">
+            <Link to="/account" className="account-link" aria-label="Мой профиль">
               <Avatar name={auth.user.display_name} url={auth.user.avatar_url} />
               <span>{auth.user.username}</span>
             </Link>
@@ -77,22 +92,19 @@ export function Layout() {
             <Link
               to={auth.status === 'unavailable' ? '/unavailable' : '/login'}
               className="account-link"
+              aria-label={signInLabel}
             >
               <Icon name="user" size={18} />
-              <span>
-                {auth.status === 'checking'
-                  ? 'Проверяем вход'
-                  : auth.status === 'unavailable'
-                    ? 'Проверить вход'
-                    : 'Войти'}
-              </span>
+              <span>{signInLabel}</span>
             </Link>
           )}
           <button
+            ref={menuButton}
             className="menu-toggle"
-            aria-label="Открыть меню"
+            aria-label={menu ? 'Закрыть меню' : 'Открыть меню'}
+            aria-controls="main-navigation"
             aria-expanded={menu}
-            onClick={() => setMenu(!menu)}
+            onClick={() => setMenu((open) => !open)}
           >
             <Icon name={menu ? 'close' : 'menu'} />
           </button>
@@ -103,41 +115,12 @@ export function Layout() {
           <Outlet />
         </PageBoundary>
       </main>
-      <footer className="footer">
-        <div className="footer__top">
-          <Link to="/" className="wordmark wordmark--footer">
-            SREZ<span>®</span>
-          </Link>
-          <p>
-            Независимый взгляд.
-            <br />
-            Вещи с характером.
-          </p>
-          <nav aria-label="Навигация внизу страницы">
-            <Link to="/catalog">
-              Каталог <Icon name="diagonal" size={14} />
-            </Link>
-            <Link to="/brands">
-              Бренды <Icon name="diagonal" size={14} />
-            </Link>
-            <Link to="/studio">
-              Создать свой бренд <Icon name="diagonal" size={14} />
-            </Link>
-          </nav>
-        </div>
-        <div className="footer__categories" aria-label="Категории одежды">
-          {categories.map(([id, label]) => (
-            <Link key={id} to={'/catalog?category=' + id}>
-              {label}
-            </Link>
-          ))}
-        </div>
-        <div className="footer__bottom">
-          <span>© {year} SREZ</span>
-          <span>СОЗДАВАЙ. НОСИ. ВЫБИРАЙ.</span>
-          <span>Независимость начинается с выбора.</span>
+      <footer className={storefront ? 'footer footer--storefront' : 'footer'}>
+        <div className="container footer__content">
+          <small>© {year} SREZ</small>
+          {storefront && <a href="#site-top">Наверх</a>}
         </div>
       </footer>
-    </>
+    </div>
   );
 }

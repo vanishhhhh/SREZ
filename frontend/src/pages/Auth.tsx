@@ -77,31 +77,14 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         <Link to="/" className="wordmark">
           SREZ<span>®</span>
         </Link>
-        <div>
-          <p className="eyebrow">СВОЙ ГОЛОС. СВОИ ПРАВИЛА.</p>
-          <h2>
-            ТВОЙ
-            <br />
-            СЛЕДУЮЩИЙ
-            <br />
-            <span>СЛОЙ.</span>
-          </h2>
-          <p>
-            Выбирай независимые бренды.
-            <br />
-            Или создай собственный.
-          </p>
-        </div>
-        <span className="mono">INDEPENDENT BY CHOICE ↗</span>
       </div>
       <div className="auth-panel">
         <div className="auth-form">
-          <p className="eyebrow">ДОБРО ПОЖАЛОВАТЬ В SREZ</p>
-          <h1>{creating ? 'Свой круг.' : 'С возвращением.'}</h1>
+          <h1>{creating ? 'Регистрация' : 'Вход'}</h1>
           <p className="muted">
             {creating
               ? 'Один аккаунт — для выбора вещей и создания своего бренда.'
-              : 'Войди, чтобы продолжить свой путь.'}
+              : 'Войдите по email или имени пользователя.'}
           </p>
           {needsVerification && (
             <Notice>

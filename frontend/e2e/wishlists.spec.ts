@@ -28,6 +28,11 @@ test('wishlists: create, add selected variants and catalog products, reorder, sh
     const title = 'Вне сезона / ' + suffix();
     await login(page, user);
     await page.goto('/wishlists');
+    const footer = page.getByRole('contentinfo');
+    await expect(footer).toHaveText(/^© \d{4} SREZ$/);
+    await expect(footer.getByRole('link')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'У вас пока нет вишлистов' })).toBeVisible();
+    await expect(page.getByRole('main').locator('a[href="/wishlists/new"]')).toHaveCount(1);
     await page.getByRole('link', { name: /Создать подборку/ }).click();
     await page.getByLabel('Название вишлиста', { exact: true }).fill(title);
     await page.getByLabel(/^Описание/).fill('Моя подборка независимых вещей.');
@@ -243,9 +248,7 @@ test('collection forms: route guard, beforeunload protection, empty state and mo
     const user = await account(api, 'draft');
     await login(page, user);
     await page.goto('/wishlists');
-    await expect(
-      page.getByRole('heading', { name: 'Твой стиль начинается с одной вещи' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'У вас пока нет вишлистов' })).toBeVisible();
     await page.goto('/wishlists/new');
     await page.getByLabel('Название вишлиста', { exact: true }).fill('Несохранённая идея');
     await page.locator('header').getByRole('link', { name: 'Каталог', exact: true }).click();

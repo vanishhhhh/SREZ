@@ -263,7 +263,6 @@ function ProductContent({ product: p }: { product: ProductDetail }) {
                 <div className="product-brand__heading">
                   <Media src={brand.logo_url} alt={'Логотип ' + brand.name} />
                   <div>
-                    <p className="eyebrow">СОЗДАНО НЕЗАВИСИМЫМИ</p>
                     <h2>{brand.name}</h2>
                   </div>
                 </div>

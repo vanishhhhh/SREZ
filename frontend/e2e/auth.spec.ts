@@ -229,9 +229,11 @@ test('real Go: registration, username/email login, profile, reload, concurrent t
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.goto('/account');
   await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole('heading', { name: 'Вход', exact: true })).toBeVisible();
+  await expect(page.locator('.auth-story .wordmark')).toBeVisible();
   expect(
     await page
-      .locator('.auth-story h2')
+      .locator('.auth-story')
       .evaluate((element) => element.scrollWidth <= element.clientWidth),
   ).toBe(true);
   await page.screenshot({ path: 'test-results/auth-login.png', fullPage: true });
@@ -327,7 +329,7 @@ test('real Go: registration, username/email login, profile, reload, concurrent t
   await page.goto('/account');
   await expect(page).toHaveURL(/\/login$/);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'С возвращением.', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Вход', exact: true })).toBeVisible();
   expect(pageErrors).toEqual([]);
   expect((await request.get('/brands')).headers()['content-type']).toContain('text/html');
   expect((await request.get('/api/brands')).headers()['content-type']).toContain(
