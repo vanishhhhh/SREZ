@@ -48,6 +48,10 @@ docs/                    актуальные доменные контракт�
 
 [Архитектура](docs/architecture.md), [единая карта всех API](docs/api-reference.md), [ревизия и технический долг](docs/project-review.md), [план frontend](frontend/docs/IMPLEMENTATION_PLAN.md).
 
+## Быстрый запуск на macOS
+
+[Инструкция для Apple Silicon](docs/macos-development.md) описывает полный запуск в Docker Desktop, разработку с Vite, подтверждение почты через Mailpit и работу с локальными портами.
+
 ## Быстрый запуск: Windows PowerShell
 
 Нужны Docker Desktop с Linux containers и Node 24 LTS (либо совместимая версия из frontend/package.json). Для Docker-запуска Go на хосте не нужен. Ниже команды из **корня этой рабочей копии**. Не запускайте другой Compose поверх чужой БД.
