@@ -77,16 +77,7 @@ export function WishlistsPage() {
           ))}
         </div>
       ) : (
-        <Empty
-          title="Твой стиль начинается с одной вещи"
-          action={
-            <Link className="button button--solid" to="/wishlists/new">
-              Создать первый вишлист <Icon name="bookmark" />
-            </Link>
-          }
-        >
-          Сохраняй идеи на сезон, подарки или будущую коллекцию.
-        </Empty>
+        <Empty title="У вас пока нет вишлистов" />
       )}
     </div>
   );

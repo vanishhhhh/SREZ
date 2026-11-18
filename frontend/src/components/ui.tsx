@@ -221,7 +221,7 @@ export function PageTitle({
   children,
   action,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   children?: ReactNode;
   action?: ReactNode;
@@ -229,7 +229,7 @@ export function PageTitle({
   return (
     <div className="page-heading">
       <div>
-        <p className="eyebrow">{eyebrow}</p>
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
         <h1>{title}</h1>
         {children && <p className="page-heading__description">{children}</p>}
       </div>
@@ -328,9 +328,6 @@ export function ProductTile({ product }: { product: ProductCard }) {
         <div className="product-tile__visual">
           <Media src={product.preview_image_url} alt={product.name} />
           {!product.is_available && <span className="product-tile__sold">Нет в наличии</span>}
-          <span className="product-tile__open">
-            <Icon name="diagonal" />
-          </span>
         </div>
         <div className="product-tile__meta">
           <span>{product.brand_name}</span>
@@ -338,9 +335,11 @@ export function ProductTile({ product }: { product: ProductCard }) {
         </div>
         <h3>{product.name}</h3>
         <div className="product-tile__sizes">
-          {product.available_sizes.length
-            ? product.available_sizes.slice(0, 6).join(' / ')
-            : 'Размеры недоступны'}
+          <span>
+            {product.available_sizes.length
+              ? product.available_sizes.slice(0, 6).join(' / ')
+              : 'Размеры недоступны'}
+          </span>
           {product.available_colors.length > 0 && (
             <span>{product.available_colors.join(' · ')}</span>
           )}

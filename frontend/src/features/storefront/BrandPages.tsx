@@ -10,9 +10,7 @@ export function BrandsPage() {
   const brands = useLoad((signal) => api.brands(signal), []);
   return (
     <div className="container page">
-      <PageTitle eyebrow="СВОЙ ГОЛОС. СВОЯ ИСТОРИЯ." title="Бренды">
-        Независимые имена, которые стоит знать.
-      </PageTitle>
+      <PageTitle title="Бренды" />
       {brands.loading ? (
         <BrandSkeletons />
       ) : brands.error ? (
@@ -32,7 +30,7 @@ export function BrandsPage() {
           ))}
         </div>
       ) : (
-        <Empty title="Новые имена — впереди">Бренды появятся здесь после публикации.</Empty>
+        <Empty title="Пока нет опубликованных брендов" />
       )}
     </div>
   );
@@ -80,7 +78,6 @@ function BrandContent({ brand: b }: { brand: Brand }) {
             <Icon name="back" size={16} />
             Все бренды
           </Link>
-          <p className="eyebrow">НЕЗАВИСИМЫЙ БРЕНД / {b.slug}</p>
           <h1>{b.name}</h1>
         </div>
       </section>
@@ -88,11 +85,7 @@ function BrandContent({ brand: b }: { brand: Brand }) {
         <section className="brand-story">
           <div className="brand-story__identity">
             <Media src={b.logo_url} alt={'Логотип ' + b.name} />
-            <h2>
-              Свой взгляд
-              <br />
-              на привычные вещи.
-            </h2>
+            <h2>О бренде</h2>
           </div>
           <div>
             <p>{b.description}</p>

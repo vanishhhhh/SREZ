@@ -221,6 +221,19 @@ test('media/PVM: file uploads for avatar, brand logo/banner and product images p
     await expect(page.locator('.toast')).toContainText('Фотография сохранена');
     await uploadInUI(page, 'Загрузить баннер', 75, file);
     await expect(page.getByRole('button', { name: 'Удалить баннер', exact: true })).toBeVisible();
+    const readManagedBrand = async () => {
+      const response = await api.get('/api/brands/' + data.brand.id + '/manage', {
+        headers: data.headers,
+      });
+      expect(response.ok()).toBe(true);
+      return response.json();
+    };
+    const originalBrand = await readManagedBrand();
+    await uploadInUI(page, 'Загрузить баннер', 110, { ...file, buffer: fixturePNG(110) });
+    const updatedBrand = await readManagedBrand();
+    expect(updatedBrand.banner_url).toMatch(/^\/media\/assets\/\d+\/content$/);
+    expect(updatedBrand.banner_url).not.toBe(originalBrand.banner_url);
+    expect(updatedBrand.logo_url).toBe(originalBrand.logo_url);
     await page.getByLabel(/^Название бренда/).fill('Городская форма новая');
     let brandBody: Record<string, unknown> | undefined;
     page.on('request', (r) => {

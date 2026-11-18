@@ -40,7 +40,7 @@ function Titles() {
         : pathname === '/unavailable'
           ? 'Соединение'
           : pathname === '/'
-            ? 'Независимый взгляд'
+            ? 'Главная'
             : pathname.startsWith('/catalog')
               ? 'Каталог'
               : pathname.startsWith('/wishlists') || pathname.startsWith('/w/')
@@ -91,11 +91,14 @@ const router = createBrowserRouter(
       <Route path="forgot-password" element={<ForgotPasswordPage />} />
       <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route element={<Layout />}>
-        <Route index element={<HomePage />} />
-        <Route path="catalog" element={<CatalogPage />} />
-        <Route path="products/:productId" element={<ProductPage />} />
-        <Route path="brands" element={<BrandsPage />} />
-        <Route path="brands/:slug" element={<BrandPage />} />
+        <Route handle="storefront">
+          <Route index element={<HomePage />} />
+          <Route path="catalog" element={<CatalogPage />} />
+          <Route path="products/:productId" element={<ProductPage />} />
+          <Route path="brands" element={<BrandsPage />} />
+          <Route path="brands/:slug" element={<BrandPage />} />
+          <Route path="w/:token" element={<SharedWishlistPage />} />
+        </Route>
         <Route path="login" element={<AuthPage key="login" />} />
         <Route path="register" element={<AuthPage key="register" register />} />
         <Route path="account" element={protect(<AccountPage />)} />
@@ -106,7 +109,6 @@ const router = createBrowserRouter(
         <Route path="wishlists" element={protect(<WishlistsPage />)} />
         <Route path="wishlists/new" element={protect(<NewWishlistPage />)} />
         <Route path="wishlists/:id" element={protect(<WishlistPage />)} />
-        <Route path="w/:token" element={<SharedWishlistPage />} />
         <Route path="studio" element={protect(<DashboardLayout />)}>
           <Route index element={<StudioPage />} />
           <Route path="invitations" element={<StudioPage invitationsOnly />} />
