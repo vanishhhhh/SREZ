@@ -6,7 +6,7 @@ services:
       SREZ_SMTP_HOST: mailpit
       SREZ_SMTP_PORT: '1025'
       SREZ_MAIL_FROM: "${SREZ_MAIL_FROM:-SREZ <no-reply@srez.local>}"
-      SREZ_FRONTEND_BASE_URL: "http://localhost:5174"
+      SREZ_FRONTEND_BASE_URL: "http://localhost:${SREZ_FRONTEND_PORT:-5174}"
       SREZ_SMTP_TLS: none
       SREZ_S3_ENDPOINT: http://seaweedfs:8333
       SREZ_S3_PUBLIC_ENDPOINT: http://127.0.0.1:${SREZ_MEDIA_PORT:-18333}
@@ -20,7 +20,7 @@ services:
       SREZ_WISHLIST_KEY: "${SREZ_WISHLIST_KEY:?generate independent wishlist key in .env}"
       SREZ_JWT_ISSUER: "${SREZ_JWT_ISSUER:-srez}"
       SREZ_JWT_AUDIENCE: "${SREZ_JWT_AUDIENCE:-srez-api}"
-      SREZ_PUBLIC_ORIGIN: "http://localhost:5174"
+      SREZ_PUBLIC_ORIGIN: "http://localhost:${SREZ_FRONTEND_PORT:-5174}"
       SREZ_AUTH_LOCAL_HTTP: "true"
       SREZ_AUTH_ATTEMPTS: "100"
       SREZ_AUTH_HASH_WORKERS: "${SREZ_AUTH_HASH_WORKERS:-2}"
@@ -75,7 +75,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "127.0.0.1:5174:8080"
+      - "127.0.0.1:${SREZ_FRONTEND_PORT:-5174}:8080"
     depends_on:
       app:
         condition: service_started
@@ -96,8 +96,8 @@ services:
       MP_ALLOWED_HOSTS: '127.0.0.1,localhost,mailpit'
       MP_QUIET: 'true'
     ports:
-      - '127.0.0.1:1025:1025'
-      - '127.0.0.1:8025:8025'
+      - '127.0.0.1:${SREZ_SMTP_PUBLISH_PORT:-1025}:1025'
+      - '127.0.0.1:${SREZ_MAILPIT_PORT:-8025}:8025'
     volumes:
       - mailpit_data:/data
     restart: unless-stopped

@@ -6,6 +6,10 @@ React + TypeScript + Vite сохранены и развиты. Реальные
 
 Актуальные документы: [отчёт MVP](docs/MVP_REPORT.md), [план](docs/IMPLEMENTATION_PLAN.md), [wishlists](../docs/wishlists.md), [buyer](../docs/buyer-shopping.md), [PVM](../docs/product-variant-management.md), [Media](../docs/media-storage.md). INTEGRATION_REPORT описывает предыдущий этап.
 
+## macOS
+
+[Инструкция для Apple Silicon](../docs/macos-development.md#react-через-vite) описывает запуск локального Vite с Docker API на том же origin, что и Docker frontend.
+
 ## Windows PowerShell: запуск
 
 Рабочая папка: `C:\dev\SREZ`. Исходная `team-repository` и её БД не используются для запуска или миграций новой копии.
