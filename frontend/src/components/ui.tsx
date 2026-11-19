@@ -258,11 +258,32 @@ export function Media({
   eager?: boolean;
   authenticated?: boolean;
 }) {
-  const loaded = useImage(src, authenticated);
+  const placeholder = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(false);
+  const loaded = useImage(src, authenticated, eager || nearViewport, eager);
+  useEffect(() => {
+    const node = placeholder.current;
+    if (!node || eager || nearViewport || !loaded.loading) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setNearViewport(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '260px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [eager, src, nearViewport, loaded.loading]);
   const resolved = loaded.src;
   if (loaded.loading)
     return (
-      <div className={`media ${className}`} data-media-src={src}>
+      <div ref={placeholder} className={`media ${className}`} data-media-src={src}>
         <span className="media__loading skeleton" aria-label="Загружаем фото" />
       </div>
     );
@@ -321,7 +342,13 @@ function MediaFrame({
     </div>
   );
 }
-export function ProductTile({ product }: { product: ProductCard }) {
+export function ProductTile({
+  product,
+  preview = false,
+}: {
+  product: ProductCard;
+  preview?: boolean;
+}) {
   return (
     <article className="product-tile">
       <Link className="product-tile__link" to={`/products/${product.id}`}>
@@ -345,8 +372,12 @@ export function ProductTile({ product }: { product: ProductCard }) {
           )}
         </div>
       </Link>
-      <FavoriteButton productId={product.id} className="product-tile__favorite" />
-      <WishlistButton productId={product.id} name={product.name} compact />
+      <FavoriteButton
+        productId={product.id}
+        className="product-tile__favorite"
+        disabled={preview}
+      />
+      <WishlistButton productId={product.id} name={product.name} compact disabled={preview} />
     </article>
   );
 }

@@ -1,0 +1,106 @@
+[
+  {
+    "brand": "kontur",
+    "width": 1440,
+    "overflow": 0,
+    "blocks": [
+      "full-width",
+      "centered",
+      "portrait",
+      "stacked",
+      "grid"
+    ]
+  },
+  {
+    "brand": "kontur",
+    "width": 390,
+    "overflow": 0,
+    "blocks": [
+      "full-width",
+      "centered",
+      "portrait",
+      "stacked",
+      "grid"
+    ]
+  },
+  {
+    "brand": "polus",
+    "width": 1440,
+    "overflow": 0,
+    "blocks": [
+      "split",
+      "split",
+      "carousel",
+      "photo-right",
+      "grid"
+    ]
+  },
+  {
+    "brand": "polus",
+    "width": 390,
+    "overflow": 0,
+    "blocks": [
+      "split",
+      "split",
+      "carousel",
+      "photo-right",
+      "grid"
+    ]
+  },
+  {
+    "brand": "smena",
+    "width": 1440,
+    "overflow": 0,
+    "blocks": [
+      "full-width",
+      "editorial",
+      "asymmetric",
+      "photo-right",
+      "photo-left",
+      "staggered",
+      "grid"
+    ]
+  },
+  {
+    "brand": "smena",
+    "width": 390,
+    "overflow": 0,
+    "blocks": [
+      "full-width",
+      "editorial",
+      "asymmetric",
+      "photo-right",
+      "photo-left",
+      "staggered",
+      "grid"
+    ]
+  },
+  {
+    "brand": "osnova",
+    "width": 1440,
+    "overflow": 0,
+    "blocks": [
+      "full-width",
+      "text",
+      "full-width",
+      "text",
+      "stacked",
+      "text-first",
+      "grid"
+    ]
+  },
+  {
+    "brand": "osnova",
+    "width": 390,
+    "overflow": 0,
+    "blocks": [
+      "full-width",
+      "text",
+      "full-width",
+      "text",
+      "stacked",
+      "text-first",
+      "grid"
+    ]
+  }
+]

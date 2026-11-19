@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -18,6 +19,7 @@ func NewBrands(db *sqlx.DB) *Brands { return &Brands{db: db} }
 var _ usecase.BrandRepository = (*Brands)(nil)
 
 type brandRow struct {
+	PublishedPage   []byte               `db:"published_page"`
 	ID              int64                `db:"id"`
 	Name            string               `db:"name"`
 	Slug            string               `db:"slug"`
@@ -40,7 +42,13 @@ type brandRow struct {
 const brandColumns = `id, name, slug, description, logo_url, banner_url, logo_media_id, banner_media_id, contact_email, telegram_url, website_url, accent_color, background_color, text_color, status, created_at, updated_at`
 
 func (r brandRow) brand() (*entities.Brand, error) {
-	return entities.RestoreBrand(entities.BrandState{ID: r.ID, Name: r.Name, Slug: r.Slug, Description: r.Description, LogoURL: r.LogoURL, BannerURL: r.BannerURL, LogoMediaID: r.LogoMediaID.Int64, BannerMediaID: r.BannerMediaID.Int64,
+	page, err := readBrandPageConfig(r.PublishedPage)
+	if err != nil {
+		// Published data can outlive the binary that wrote it. Serve only the
+		// standard public fallback; never substitute the draft.
+		log.Printf("brand_page_published_unreadable brand_id=%d", r.ID)
+	}
+	return entities.RestoreBrand(entities.BrandState{PublishedPage: page, ID: r.ID, Name: r.Name, Slug: r.Slug, Description: r.Description, LogoURL: r.LogoURL, BannerURL: r.BannerURL, LogoMediaID: r.LogoMediaID.Int64, BannerMediaID: r.BannerMediaID.Int64,
 		Contacts:   entities.BrandContacts{Email: r.Email, TelegramURL: r.TelegramURL, WebsiteURL: r.WebsiteURL},
 		Appearance: entities.BrandAppearance{AccentColor: r.AccentColor, BackgroundColor: r.BackgroundColor, TextColor: r.TextColor}, Status: r.Status, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt})
 }
@@ -71,7 +79,7 @@ func (b *Brands) get(ctx context.Context, query string, arg any) (*entities.Bran
 	return row.brand()
 }
 func (b *Brands) GetActiveBySlug(ctx context.Context, slug string) (*entities.Brand, error) {
-	return b.get(ctx, `SELECT `+brandColumns+` FROM brands WHERE slug = $1 AND status = 'active'`, slug)
+	return b.get(ctx, `SELECT `+brandColumns+`, (SELECT published FROM brand_pages WHERE brand_id=brands.id) AS published_page FROM brands WHERE slug = $1 AND status = 'active'`, slug)
 }
 func (b *Brands) Get(ctx context.Context, id int64) (*entities.Brand, error) {
 	return b.get(ctx, `SELECT `+brandColumns+` FROM brands WHERE id = $1`, id)

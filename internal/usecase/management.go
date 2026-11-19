@@ -29,6 +29,10 @@ type ManagedBrand struct {
 }
 type ManagementTx interface {
 	ProductVariantTx
+	BrandPage(context.Context) (*entities.BrandPageEditorState, error)
+	SaveBrandPage(context.Context, entities.BrandPageEditorState) error
+	BrandEditorialMedia(context.Context) ([]int64, error)
+	BindBrandEditorialMedia(context.Context, int64) error
 	Membership(context.Context, int64) (*entities.BrandMembership, error)
 	SaveMembership(context.Context, entities.BrandMembership) error
 	FindUser(context.Context, string) (int64, error)
@@ -48,9 +52,14 @@ type ManagementRepository interface {
 	WithinBrand(context.Context, int64, func(ManagementTx, *entities.Brand) error) error
 	ProductBrand(context.Context, int64) (int64, error)
 }
-type Management struct{ repo ManagementRepository }
+type Management struct {
+	repo                  ManagementRepository
+	brandPageWriteVersion int
+}
 
-func NewManagement(repo ManagementRepository) *Management { return &Management{repo} }
+func NewManagement(repo ManagementRepository) *Management {
+	return &Management{repo: repo, brandPageWriteVersion: entities.BrandPageCompositionVersion}
+}
 func (m *Management) CreateBrand(ctx context.Context, uid int64, name, slug string) (*entities.Brand, error) {
 	if uid <= 0 {
 		return nil, ErrForbidden

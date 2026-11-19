@@ -61,7 +61,7 @@ export function CatalogPage() {
     setFilterError('');
     try {
       const next = applyFilters(filters, params);
-      setParams(next);
+      setParams(next, { flushSync: true });
       if (open) closeFilters();
     } catch (err) {
       setFilterError(errorText(err));

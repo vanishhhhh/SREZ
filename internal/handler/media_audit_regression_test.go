@@ -431,3 +431,45 @@ func TestMediaUploadAdmissionReleasesOnTCPDisconnectAndTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestMediaDeliverySignalsTemporaryStorageFailure(t *testing.T) {
+	adapter, _ := auditAdapter(t)
+	h, db := newPVMHTTP(t)
+	media := usecase.NewMedia(storage.NewMedia(db), adapter, "srez-media", h.management)
+	h.SetMedia(media)
+	owner, _ := pvmAccount(t, h, "audit_retry_owner")
+	data, _, _ := mediaTestSources(t)
+	asset := auditUpload(t, owner, usecase.MediaRequest{
+		Purpose: "user_avatar", ContentType: "image/jpeg", SizeBytes: int64(len(data)),
+	}, data)
+	var key string
+	if err := db.Get(&key, `SELECT object_key FROM media_assets WHERE id=$1`, asset.AssetID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = adapter.Delete(context.Background(), key) })
+	path := fmt.Sprintf("/media/assets/%d/content", asset.AssetID)
+	baseline := owner.call("GET", path, "", http.StatusOK)
+	outage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "private storage diagnostics", http.StatusServiceUnavailable)
+	}))
+	defer outage.Close()
+	failed, err := objectstorage.New(objectstorage.Config{
+		Endpoint: outage.URL, PublicEndpoint: outage.URL, Region: "us-east-1",
+		Bucket: "srez-media", AccessKey: "temporary-test-key", SecretKey: "temporary-test-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.SetMedia(usecase.NewMedia(storage.NewMedia(db), failed, "srez-media", h.management))
+	response := owner.call("GET", path, "", http.StatusServiceUnavailable)
+	if response.Header().Get("Retry-After") != "1" || response.Header().Get("Cache-Control") != "no-store" ||
+		strings.Contains(response.Body.String(), "private storage diagnostics") {
+		t.Fatal("unsafe temporary delivery response")
+	}
+	guest := pvmHTTPClient{t: t, h: h}
+	guest.call("GET", path, "", http.StatusNotFound)
+	h.SetMedia(media)
+	if recovered := owner.call("GET", path, "", http.StatusOK); !bytes.Equal(recovered.Body.Bytes(), baseline.Body.Bytes()) {
+		t.Fatal("delivery changed the original media")
+	}
+}

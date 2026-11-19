@@ -53,8 +53,7 @@ export function WishlistsPage() {
   return (
     <div className="container page">
       <PageTitle
-        eyebrow="СОБИРАЙ СВОЙ ВЗГЛЯД"
-        title="Мои вишлисты."
+        title="Мои вишлисты"
         action={
           !full && (
             <Link className="button button--solid" to="/wishlists/new">
@@ -98,7 +97,7 @@ export function NewWishlistPage() {
         <Icon name="back" size={16} />
         Мои вишлисты
       </Link>
-      <PageTitle eyebrow="ТВОЯ ПОДБОРКА" title="С чего начнём?">
+      <PageTitle title="Новый вишлист">
         Новый список виден только тебе. Публичную ссылку можно включить позже.
       </PageTitle>
       <form
@@ -192,12 +191,11 @@ export function WishlistPage() {
           </Link>
         }
       >
-        {list.description || 'Собирай то, что отражает тебя.'}
+        {list.description}
       </PageTitle>
       <div className="wishlist-settings-grid">
         <WishlistSettings key={list.id} list={list} change={feed.setData} />
         <section className="panel share-panel">
-          <p className="eyebrow">ПОДЕЛИТЬСЯ ВЗГЛЯДОМ</p>
           <h2>{list.share_path ? 'Подборка открыта по ссылке' : 'Личное пространство'}</h2>
           <p className="muted">
             {list.share_path
@@ -240,7 +238,6 @@ export function WishlistPage() {
       </div>
       <div className="section-heading wishlist-items-heading">
         <div>
-          <p className="eyebrow">СОБРАНО ТОБОЙ</p>
           <h2>
             Вещи <span className="muted">/ {list.items.length}</span>
           </h2>
@@ -584,11 +581,8 @@ export function SharedWishlistPage() {
     <div className="container page shared-wishlist">
       <section className="shared-wishlist__hero">
         <div>
-          <p className="eyebrow">SREZ / ЛИЧНЫЙ ВЗГЛЯД</p>
           <h1>{list.title}</h1>
-          <p className="shared-wishlist__description">
-            {list.description || 'Независимые вещи. Собраны с характером.'}
-          </p>
+          {list.description && <p className="shared-wishlist__description">{list.description}</p>}
           <span className="mono">{list.items.length} ВЕЩЕЙ / ПУБЛИЧНАЯ ПОДБОРКА</span>
         </div>
         {!!list.items.length && (
@@ -619,7 +613,6 @@ export function SharedWishlistPage() {
         </Empty>
       )}
       <div className="shared-wishlist__footer">
-        <p>У каждого свой SREZ.</p>
         <Link className="button button--outline" to="/wishlists">
           Собрать свою подборку <Icon name="diagonal" />
         </Link>

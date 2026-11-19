@@ -1,0 +1,62 @@
+{
+  "scope": "all",
+  "exitCode": 0,
+  "passed": 44,
+  "groups": [
+    {
+      "file": "auth.spec.ts",
+      "exitCode": 0,
+      "passed": 9
+    },
+    {
+      "file": "brand-editorial.spec.ts",
+      "exitCode": 0,
+      "passed": 2
+    },
+    {
+      "file": "brand-page-remediation.spec.ts",
+      "exitCode": 0,
+      "passed": 4
+    },
+    {
+      "file": "brand-page.spec.ts",
+      "exitCode": 0,
+      "passed": 1
+    },
+    {
+      "file": "buyer.spec.ts",
+      "exitCode": 0,
+      "passed": 7
+    },
+    {
+      "file": "email-verification.spec.ts",
+      "exitCode": 0,
+      "passed": 3
+    },
+    {
+      "file": "first-purchase.spec.ts",
+      "exitCode": 0,
+      "passed": 1
+    },
+    {
+      "file": "password-recovery.spec.ts",
+      "exitCode": 0,
+      "passed": 2
+    },
+    {
+      "file": "public.spec.ts",
+      "exitCode": 0,
+      "passed": 9
+    },
+    {
+      "file": "seller.spec.ts",
+      "exitCode": 0,
+      "passed": 3
+    },
+    {
+      "file": "wishlists.spec.ts",
+      "exitCode": 0,
+      "passed": 3
+    }
+  ]
+}

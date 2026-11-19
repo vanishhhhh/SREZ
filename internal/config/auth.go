@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -13,8 +14,21 @@ type Auth struct {
 	JWTKey, CSRFKey          []byte
 	Issuer, Audience, Origin string
 	LocalHTTP                bool
+	LocalCookieScope         string
 	Proxies                  []string
 	Attempts, HashWorkers    int
+}
+
+var cookieScope = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
+
+func (c Auth) RefreshCookieName() string {
+	if !c.LocalHTTP {
+		return "__Host-srez_refresh"
+	}
+	if c.LocalCookieScope == "" {
+		return "srez_refresh_local"
+	}
+	return "srez_refresh_local_" + c.LocalCookieScope
 }
 
 func LoadAuth() (Auth, error) {
@@ -42,6 +56,10 @@ func LoadAuth() (Auth, error) {
 			return c, bad
 		}
 	} else if u.Scheme != "https" {
+		return c, bad
+	}
+	c.LocalCookieScope = os.Getenv("SREZ_AUTH_LOCAL_COOKIE_SCOPE")
+	if c.LocalCookieScope != "" && (!c.LocalHTTP || !cookieScope.MatchString(c.LocalCookieScope)) {
 		return c, bad
 	}
 	if c.Issuer == "" || c.Audience == "" {

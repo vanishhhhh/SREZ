@@ -1,3 +1,6 @@
+import { readBrandPageEditor } from './brand-page';
+import type { BrandPageConfig } from './brand-page';
+import { ApiError } from './http';
 import { session } from './client';
 import { readBrand, readBrands, readProduct, readProductPage } from './public-data';
 import type {
@@ -15,9 +18,14 @@ import type {
 
 const privateGet = <T>(path: string, signal?: AbortSignal) =>
   session.request<T>(path, { auth: true, signal });
-const write = <T>(method: string, path: string, body?: unknown) =>
-  session.request<T>(path, { method, auth: true, body });
+const write = <T>(method: string, path: string, body?: unknown, signal?: AbortSignal) =>
+  session.request<T>(path, { method, auth: true, body, signal });
 const colorPath = (product: number, color: number) => `/products/${product}/colors/${color}`;
+function brandPageEditor(value: unknown) {
+  const editor = readBrandPageEditor(value);
+  if (!editor) throw new ApiError(502, 'invalid response');
+  return editor;
+}
 export const api = {
   brands: async (signal?: AbortSignal) =>
     readBrands(await session.request<unknown>('/brands', { signal })),
@@ -36,6 +44,16 @@ export const api = {
   invitations: (signal?: AbortSignal) => privateGet<MyBrand[]>('/me/brand-invitations', signal),
   manageBrand: (id: string, signal?: AbortSignal) =>
     privateGet<Brand>(`/brands/${encodeURIComponent(id)}/manage`, signal),
+  brandPageEditor: (id: number, signal?: AbortSignal) =>
+    privateGet<unknown>(`/brands/${id}/page/manage`, signal).then(brandPageEditor),
+  saveBrandPage: (id: number, revision: number, config: BrandPageConfig, signal?: AbortSignal) =>
+    write<unknown>('PUT', `/brands/${id}/page/draft`, { revision, config }, signal).then(
+      brandPageEditor,
+    ),
+  publishBrandPage: (id: number, revision: number, signal?: AbortSignal) =>
+    write<unknown>('POST', `/brands/${id}/page/publish`, { revision }, signal).then(
+      brandPageEditor,
+    ),
   manageProducts: (id: string, signal?: AbortSignal) =>
     privateGet<Product[]>(`/brands/${encodeURIComponent(id)}/products/manage`, signal),
   createBrand: (name: string, slug: string) => write<Brand>('POST', '/brands', { name, slug }),

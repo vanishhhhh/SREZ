@@ -122,7 +122,7 @@ test('Mailpit: registration, password gate, real email link, explicit confirmati
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByText('Email подтверждён', { exact: true })).toBeVisible();
-  expect((await context.cookies()).find((c) => c.name === 'srez_refresh_local')?.httpOnly).toBe(
+  expect((await context.cookies()).find((c) => c.name === 'srez_refresh_local_qa')?.httpOnly).toBe(
     true,
   );
   await mailbox.close();

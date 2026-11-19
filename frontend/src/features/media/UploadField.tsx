@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Notice, useToast } from '../../components/ui';
-import { beginUpload, putUpload, validateFile } from './api';
+import { beginUpload, putUpload, uploadError, validateFile } from './api';
 import { useUnsavedChanges } from '../../components/UnsavedChanges';
 import type { UploadTarget } from './api';
 import { ApiError } from '../../lib/http';
@@ -10,11 +10,13 @@ export function UploadField({
   label,
   target,
   onComplete,
+  onStart,
   disabled = false,
 }: {
   label: string;
   target: UploadTarget;
-  onComplete: () => void | Promise<void>;
+  onComplete: (mediaID: number) => void | Promise<void>;
+  onStart?: () => (() => void) | null;
   disabled?: boolean;
 }) {
   const fieldID = useId();
@@ -23,7 +25,7 @@ export function UploadField({
     [retry, setRetry] = useState(false);
   const pending = useRef<{ file: File; path: string } | null>(null),
     lock = useRef(false),
-    active = useRef<AbortController | null>(null);
+    active = useRef<{ controller: AbortController; finish: () => void } | null>(null);
   const toast = useToast();
   const [selected, setSelected] = useState<File | null>(null),
     [preview, setPreview] = useState('');
@@ -41,15 +43,29 @@ export function UploadField({
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [selected]);
-  useEffect(() => () => active.current?.abort(), []);
+  useEffect(
+    () => () => {
+      active.current?.controller.abort();
+      active.current?.finish();
+    },
+    [],
+  );
   async function upload(file?: File) {
     if (lock.current || disabled) return;
+    const release = onStart?.();
+    if (release === null) return;
+    const finish = () => {
+      if (active.current?.finish === finish) {
+        active.current = null;
+        release?.();
+      }
+    };
     lock.current = true;
     setBusy(true);
     setError('');
     setRetry(false);
     const controller = new AbortController();
-    active.current = controller;
+    active.current = { controller, finish };
     try {
       if (file) {
         pending.current = null;
@@ -58,20 +74,22 @@ export function UploadField({
       }
       const current = pending.current;
       if (!current) throw new Error('Выберите фотографию.');
-      await putUpload(current.path, current.file, controller.signal);
+      const upload = await putUpload(current.path, current.file, controller.signal);
+      if (controller.signal.aborted) return;
       pending.current = null;
       clean();
       setSelected(null);
-      await onComplete();
+      await onComplete(upload.media_id);
       toast('Фотография сохранена');
     } catch (e) {
       if (!controller.signal.aborted) {
-        setError(errorText(e));
+        setError(uploadError(e, target.purpose));
         setRetry(!!pending.current && e instanceof ApiError && e.status === 0);
         if (!(e instanceof ApiError) || e.status !== 0) pending.current = null;
       }
     } finally {
       lock.current = false;
+      finish();
       if (!controller.signal.aborted) setBusy(false);
     }
   }
@@ -134,7 +152,23 @@ export function UploadField({
           </div>
         </div>
       )}
-      {busy && <p role="status">Загружаем и проверяем фотографию…</p>}
+      {busy && (
+        <div className="button-row">
+          <p role="status">Загружаем и проверяем фотографию…</p>
+          {onStart && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                active.current?.controller.abort();
+                pending.current = null;
+                setBusy(false);
+              }}
+            >
+              Отменить загрузку
+            </Button>
+          )}
+        </div>
+      )}
       <Notice error>{error}</Notice>
       {retry && (
         <Button variant="outline" onClick={() => void upload()}>

@@ -104,13 +104,13 @@ test('recovery UI: real Mailpit link, explicit reset, old access/refresh revoked
   await page.getByRole('button', { name: 'Сохранить новый пароль', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Пароль обновлён.' })).toBeVisible();
   expect((await request.get('/api/profile', { headers: user.headers })).status()).toBe(401);
-  const refreshCookie = oldCookies.cookies.find((c) => c.name === 'srez_refresh_local');
+  const refreshCookie = oldCookies.cookies.find((c) => c.name === 'srez_refresh_local_qa');
   expect(!!refreshCookie).toBe(true);
   const refresh = await request.post('/api/auth/refresh', {
     headers: {
       Origin: qaOrigin,
       'X-CSRF-Token': oldAuth.csrf_token,
-      Cookie: `srez_refresh_local=${refreshCookie!.value}`,
+      Cookie: `srez_refresh_local_qa=${refreshCookie!.value}`,
     },
     data: {},
   });

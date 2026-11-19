@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"srez/internal/entities"
 	"srez/internal/usecase"
 )
 
@@ -41,5 +42,8 @@ func (h *Handler) GetBrand(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось загрузить бренд"})
 		return
 	}
-	c.JSON(http.StatusOK, brandDTO(*brand))
+	c.JSON(http.StatusOK, struct {
+		brandResponse
+		Page *entities.BrandPageConfig `json:"page,omitempty"`
+	}{brandDTO(*brand), brand.PublishedPage()})
 }

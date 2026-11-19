@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -59,7 +61,14 @@ func main() {
 	products := usecase.NewProducts(storage.NewProducts(db), brandsRepo)
 	users := usecase.NewUsers(storage.NewUsers(db))
 	h := handler.New(users, brands, products)
-	h.SetManagement(usecase.NewManagement(storage.NewManagement(db)))
+	management := usecase.NewManagement(storage.NewManagement(db))
+	if notice := os.Getenv("SREZ_BRAND_PAGE_SCHEMA_MAX_WRITE"); notice != "" {
+		version, e := strconv.Atoi(notice)
+		if e != nil || management.LimitBrandPageWrites(version) != nil {
+			log.Fatal("SREZ_BRAND_PAGE_SCHEMA_MAX_WRITE must be 1, 2 or 3")
+		}
+	}
+	h.SetManagement(management)
 	h.SetShopping(usecase.NewShopping(storage.NewShopping(db)))
 	orders := usecase.NewOrders(storage.NewOrders(db))
 	h.SetOrders(orders)
@@ -86,7 +95,7 @@ func main() {
 		if err != nil {
 			log.Fatal("media storage unavailable or bucket initialization failed")
 		}
-		media := usecase.NewMedia(storage.NewMedia(db), objects, mediaCfg.Bucket, usecase.NewManagement(storage.NewManagement(db)))
+		media := usecase.NewMedia(storage.NewMedia(db), objects, mediaCfg.Bucket, management)
 		h.SetMedia(media)
 		go media.RunCleanup(context.Background(), func(e error) {
 			if errors.Is(e, usecase.ErrMediaBucketMismatch) {

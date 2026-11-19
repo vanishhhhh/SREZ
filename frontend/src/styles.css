@@ -3402,10 +3402,6 @@ fieldset.selection-block {
   align-items: center;
   gap: 24px;
 }
-.shared-wishlist__footer p {
-  font-size: clamp(28px, 4vw, 48px);
-  letter-spacing: -0.04em;
-}
 .srez-dialog {
   width: min(620px, calc(100% - 32px));
   max-height: calc(100dvh - 32px);
@@ -3552,8 +3548,7 @@ fieldset.selection-block {
   width: calc(100% - 64px);
   max-width: 1200px;
 }
-.dashboard-main .page-title h1 {
-  font-size: clamp(36px, 4.5vw, 62px);
+.dashboard-main .page-heading h1 {
   overflow-wrap: anywhere;
 }
 .dashboard-main .editor-layout {

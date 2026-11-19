@@ -1,7 +1,7 @@
 import { UploadField } from '../features/media/UploadField';
 import { deleteBrandImage } from '../features/media/api';
 import { useUnsavedChanges } from '../components/UnsavedChanges';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -24,6 +24,10 @@ import {
   Status,
   useAction,
 } from '../components/ui';
+
+const BrandPageEditor = lazy(async () => ({
+  default: (await import('../features/brand-page/BrandPageEditor')).BrandPageEditor,
+}));
 
 export function StudioPage({ invitationsOnly = false }: { invitationsOnly?: boolean }) {
   const feed = useLoad(async (signal) => {
@@ -208,15 +212,15 @@ export function NewBrandPage() {
 }
 
 function editableBrand(brand: Brand): BrandInput {
-  const { name, slug, description, contacts, appearance } = brand;
-  return { name, slug, description, contacts, appearance };
+  const { name, slug, description, contacts } = brand;
+  return { name, slug, description, contacts };
 }
 function BrandSettings({ brand, reload }: { brand: Brand; reload: () => void }) {
   const [form, setForm] = useFormDraft(editableBrand(brand), String(brand.id));
   const action = useAction();
   const field = (key: keyof Pick<BrandInput, 'name' | 'slug' | 'description'>, value: string) =>
     setForm((previous) => ({ ...previous, [key]: value }));
-  const dirty = ['name', 'slug', 'description', 'contacts', 'appearance'].some(
+  const dirty = ['name', 'slug', 'description', 'contacts'].some(
     (key) =>
       JSON.stringify(form[key as keyof BrandInput]) !==
       JSON.stringify(brand[key as keyof BrandInput]),
@@ -228,13 +232,12 @@ function BrandSettings({ brand, reload }: { brand: Brand; reload: () => void }) 
     void action.run(async () => {
       if (!httpsURL(form.contacts.telegram_url, true) || !httpsURL(form.contacts.website_url, true))
         throw new Error('Ссылки должны начинаться с https://.');
-      const { name, slug, description, contacts, appearance } = form;
+      const { name, slug, description, contacts } = form;
       const saved = await api.patchBrand(brand.id, {
         name: name.trim(),
         slug,
         description: description.trim(),
         contacts,
-        appearance,
       });
       setForm(editableBrand(saved));
       clean();
@@ -280,7 +283,7 @@ function BrandSettings({ brand, reload }: { brand: Brand; reload: () => void }) 
           </Field>
           <details className="form-details">
             <summary>
-              Контакты и оформление <Icon name="plus" size={16} />
+              Контакты <Icon name="plus" size={16} />
             </summary>
             <div className="form-stack">
               <Field label="Email бренда">
@@ -319,29 +322,6 @@ function BrandSettings({ brand, reload }: { brand: Brand; reload: () => void }) 
                     }
                   />
                 </Field>
-              </div>
-              <div className="form-grid form-grid--three">
-                {(
-                  [
-                    ['accent_color', 'Акцент'],
-                    ['background_color', 'Фон'],
-                    ['text_color', 'Текст'],
-                  ] as const
-                ).map(([key, label]) => (
-                  <Field label={label} key={key} hint="HEX или пустое поле">
-                    <input
-                      placeholder="#111111"
-                      pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})"
-                      value={form.appearance[key]}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          appearance: { ...form.appearance, [key]: e.target.value },
-                        })
-                      }
-                    />
-                  </Field>
-                ))}
               </div>
             </div>
           </details>
@@ -501,8 +481,10 @@ export function BrandStudioPage() {
   const [tabParams, setTabParams] = useSearchParams();
   const requestedTab = tabParams.get('tab');
   const ownerTab =
-    requestedTab === 'settings' || requestedTab === 'team' ? requestedTab : 'products';
-  const setTab = (value: 'products' | 'settings' | 'team') =>
+    requestedTab === 'settings' || requestedTab === 'team' || requestedTab === 'page'
+      ? requestedTab
+      : 'products';
+  const setTab = (value: 'products' | 'settings' | 'team' | 'page') =>
     setTabParams(value === 'products' ? {} : { tab: value }, { replace: true });
   const feed = useLoad(
     async (signal) => {
@@ -570,6 +552,11 @@ export function BrandStudioPage() {
             >
               Настройки бренда
             </button>
+            {!blocked && (
+              <button role="tab" aria-selected={tab === 'page'} onClick={() => setTab('page')}>
+                Оформление страницы
+              </button>
+            )}
             <button role="tab" aria-selected={tab === 'team'} onClick={() => setTab('team')}>
               Команда
             </button>
@@ -628,6 +615,11 @@ export function BrandStudioPage() {
       )}
       {tab === 'settings' && role === 'owner' && (
         <BrandSettings brand={brand} reload={feed.reload} />
+      )}
+      {tab === 'page' && role === 'owner' && !blocked && (
+        <Suspense fallback={<Loading />}>
+          <BrandPageEditor key={brand.id} brand={brand} />
+        </Suspense>
       )}
       {tab === 'team' && role === 'owner' && <Members brandID={brand.id} />}
     </div>

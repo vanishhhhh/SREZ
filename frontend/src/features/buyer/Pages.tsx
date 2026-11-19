@@ -27,9 +27,7 @@ export function FavoritesPage() {
   const action = useAction();
   return (
     <div className="container page">
-      <PageTitle eyebrow="ЛИЧНЫЙ ВЫБОР" title="Избранное">
-        Вещи, к которым хочется вернуться.
-      </PageTitle>
+      <PageTitle title="Избранное">Вещи, к которым хочется вернуться.</PageTitle>
       {state.favoritesError ? (
         <LoadError message={state.favoritesError} retry={buyerStore.refreshFavorites} />
       ) : state.favorites === null ? (
@@ -315,8 +313,8 @@ export function OrdersPage() {
   const now = useOrderClock(!!orders.data?.some((o) => o.status === 'unpaid'), orders.reload);
   return (
     <div className="container page">
-      <PageTitle eyebrow="ИСТОРИЯ ВАШЕГО ВЫБОРА" title="Мои заказы">
-        Здесь хранятся неоплаченные резервы и их история.
+      <PageTitle title="Мои заказы">
+        Здесь можно посмотреть заказы и их статусы. Оплата пока не подключена.
       </PageTitle>
       {buyer.checkoutUncertain && (
         <Notice>
@@ -370,7 +368,7 @@ export function OrdersPage() {
             </Link>
           }
         >
-          Ваши резервы появятся здесь после оформления корзины.
+          После оформления корзины ваши заказы появятся здесь.
         </Empty>
       )}
     </div>

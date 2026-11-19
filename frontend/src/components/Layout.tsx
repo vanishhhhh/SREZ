@@ -9,6 +9,8 @@ export function Layout() {
   const auth = useAuth();
   const buyer = useBuyer();
   const owned = auth.status === 'authenticated' && buyer.owner === auth.user?.id;
+  const favorites = owned ? buyer.favorites?.length || 0 : 0;
+  const cartCount = owned ? buyer.cart?.items.reduce((n, i) => n + i.quantity, 0) || 0 : 0;
   const location = useLocation();
   const storefront = useMatches().some((match) => match.handle === 'storefront');
   const [menu, setMenu] = useState(false);
@@ -61,27 +63,18 @@ export function Layout() {
           <Link
             className="header-counter"
             to="/favorites"
-            aria-label={
-              'Избранное' + (owned && buyer.favorites ? ': ' + buyer.favorites.length : '')
-            }
+            aria-label={favorites ? 'Избранное: ' + favorites : 'Избранное'}
           >
             <Icon name="heart" />
-            {owned && buyer.favorites && <span>{buyer.favorites.length}</span>}
+            {favorites > 0 && <span>{favorites}</span>}
           </Link>
           <Link
             className="header-counter"
             to="/cart"
-            aria-label={
-              'Корзина' +
-              (owned && buyer.cart
-                ? ': ' + buyer.cart.items.reduce((n, i) => n + i.quantity, 0)
-                : '')
-            }
+            aria-label={cartCount ? 'Корзина: ' + cartCount : 'Корзина'}
           >
             <Icon name="bag" />
-            {owned && buyer.cart && (
-              <span>{buyer.cart.items.reduce((n, i) => n + i.quantity, 0)}</span>
-            )}
+            {cartCount > 0 && <span>{cartCount}</span>}
           </Link>
           {auth.status === 'authenticated' && auth.user ? (
             <Link to="/account" className="account-link" aria-label="Мой профиль">

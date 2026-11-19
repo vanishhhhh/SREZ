@@ -48,6 +48,14 @@ func (h *Handler) mediaRoutes(x *authHTTP) {
 }
 func mediaHTTPError(c *gin.Context, e error) {
 	switch {
+	case errors.Is(e, usecase.ErrMediaFormat):
+		c.JSON(400, errorResponse{"unsupported image format"})
+	case errors.Is(e, usecase.ErrMediaResolution):
+		c.JSON(400, errorResponse{"image resolution exceeds limit"})
+	case errors.Is(e, usecase.ErrMediaCorrupt):
+		c.JSON(400, errorResponse{"damaged image"})
+	case errors.Is(e, usecase.ErrMediaLibraryFull):
+		c.JSON(409, errorResponse{"editorial media library is full"})
 	case errors.Is(e, usecase.ErrMediaTooLarge):
 		c.JSON(413, errorResponse{"image size limit exceeded"})
 	case errors.Is(e, usecase.ErrMediaBusy):
@@ -103,13 +111,33 @@ func (h *Handler) readMediaContent(c *gin.Context) {
 	}
 	_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(15 * time.Second))
 	defer func() { _ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Time{}) }()
-	e := h.media.Deliver(c.Request.Context(), uid, id, func(a *usecase.MediaAsset, data []byte) {
+	width := 0
+	if values, exists := c.Request.URL.Query()["width"]; exists {
+		if len(values) != 1 {
+			c.JSON(400, errorResponse{"invalid media width"})
+			return
+		}
+		width, _ = strconv.Atoi(values[0])
+		if !usecase.ValidMediaWidth(width) {
+			c.JSON(400, errorResponse{"invalid media width"})
+			return
+		}
+	}
+	e := h.media.DeliverSize(c.Request.Context(), uid, id, width, func(a *usecase.MediaAsset, data []byte) {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Cache-Control", "no-store")
 		c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
 		c.Data(200, a.MIME, data)
 	})
-	if e != nil {
+	switch {
+	case errors.Is(e, usecase.ErrMediaBusy):
+		c.Header("Retry-After", "1")
+		c.JSON(http.StatusTooManyRequests, errorResponse{"media processing busy"})
+	case errors.Is(e, usecase.ErrMediaStorageUnavailable):
+		c.Header("Cache-Control", "no-store")
+		c.Header("Retry-After", "1")
+		c.JSON(http.StatusServiceUnavailable, errorResponse{"media temporarily unavailable"})
+	case e != nil:
 		mediaHTTPError(c, e)
 	}
 }

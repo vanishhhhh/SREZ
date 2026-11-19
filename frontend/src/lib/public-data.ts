@@ -1,4 +1,5 @@
 import { ApiError } from './http';
+import { readBrandPageConfig } from './brand-page';
 import type { Brand, ProductCard, ProductDetail, ProductPage } from './types';
 
 const object = (v: unknown): v is Record<string, unknown> =>
@@ -34,7 +35,7 @@ export function readBrand(value: unknown): Brand {
         (k) => typeof (value.contacts as Record<string, unknown>)[k] === 'string',
       ),
   );
-  return value as unknown as Brand;
+  return { ...(value as unknown as Brand), page: readBrandPageConfig(value.page) };
 }
 export function readBrands(value: unknown): Brand[] {
   ensure(Array.isArray(value));

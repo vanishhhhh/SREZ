@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"srez/internal/config"
+	"srez/internal/entities"
 	"srez/internal/security"
 	"srez/internal/storage"
 	"srez/internal/usecase"
@@ -145,6 +146,76 @@ func TestPostgresHTTPAuthManagementCatalogIntegration(t *testing.T) {
 	call("POST", "/brands/"+bid+"/publish", "{}", rotated.AccessToken, "", nil, 200)
 	call("POST", "/brands/"+bid+"/invitations", `{"username":"cross_editor"}`, rotated.AccessToken, "", nil, 201)
 	call("POST", "/brands/"+bid+"/invitations/accept", "{}", editorLogin.AccessToken, "", nil, 200)
+	// Check page snapshots before exercising the unchanged product transitions.
+	{
+		manage := "/brands/" + bid + "/page/manage"
+		draftPath := "/brands/" + bid + "/page/draft"
+		publishPath := "/brands/" + bid + "/page/publish"
+		publicPath := "/brands/cross-brand"
+		call("GET", manage, "", "", "", nil, 401)
+		call("GET", manage, "", editorLogin.AccessToken, "", nil, 403)
+		public := func() *entities.BrandPageConfig {
+			var response struct {
+				Page *entities.BrandPageConfig `json:"page"`
+			}
+			decode(call("GET", publicPath, "", "", "", nil, 200), &response)
+			return response.Page
+		}
+		if public() != nil {
+			t.Fatal("legacy brand has an unexpected snapshot")
+		}
+		var initial entities.BrandPageEditorState
+		decode(call("GET", manage, "", rotated.AccessToken, "", nil, 200), &initial)
+		config := initial.Draft
+		config.Blocks = config.Blocks[:3]
+		config.Blocks[1], config.Blocks[2] = config.Blocks[2], config.Blocks[1]
+		config.Blocks[0].Layout = "split"
+		config.Appearance.BackgroundColor = "#babc"
+		body := func(revision int) string {
+			raw, err := json.Marshal(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return fmt.Sprintf(`{"revision":%d,"config":%s}`, revision, raw)
+		}
+		call("PUT", draftPath, strings.Replace(body(0), `"source":"brand_banner"`, `"source":"brand_banner","url":"https://example.test/a"`, 1), rotated.AccessToken, "", nil, 400)
+		call("PUT", draftPath, strings.Replace(body(0), `"text_color":""`, `"text_color":null`, 1), rotated.AccessToken, "", nil, 400)
+		for _, invalid := range []string{
+			strings.Replace(body(0), `"revision":0`, `"revision":0,"revision":0`, 1),
+			strings.Replace(body(0), `"revision":0`, `"Revision":0`, 1),
+			strings.Replace(body(0), `"source":"brand_banner"`, `"source":"brand_banner","source":"brand_banner"`, 1),
+			strings.Replace(body(0), `"source":"brand_banner"`, `"Source":"brand_banner"`, 1),
+			body(0) + " {}",
+		} {
+			call("PUT", draftPath, invalid, rotated.AccessToken, "", nil, 400)
+		}
+		call("PUT", draftPath, body(0)+strings.Repeat(" ", 128*1024), rotated.AccessToken, "", nil, 413)
+		call("PUT", draftPath, body(0), editorLogin.AccessToken, "", nil, 403)
+		call("PUT", draftPath, body(0), rotated.AccessToken, "", nil, 200)
+		call("PUT", draftPath, body(0), rotated.AccessToken, "", nil, 409)
+		if public() != nil {
+			t.Fatal("draft leaked publicly")
+		}
+		call("POST", publishPath, `{"revision":1}`, rotated.AccessToken, "", nil, 200)
+		config.Appearance.BackgroundColor = "#123456"
+		call("PUT", draftPath, body(2), rotated.AccessToken, "", nil, 200)
+		call("PATCH", "/brands/"+bid, `{"appearance":{"background_color":"#001122"}}`, rotated.AccessToken, "", nil, 200)
+		snapshot := public()
+		if snapshot == nil || snapshot.Blocks[1].Type != entities.BrandPageProducts || len(snapshot.Blocks) != 3 ||
+			snapshot.Blocks[0].Layout != "split" || snapshot.Appearance.BackgroundColor != "#babc" {
+			t.Fatal("public snapshot changed")
+		}
+		call("POST", publishPath, `{"revision":2}`, rotated.AccessToken, "", nil, 409)
+		for _, bad := range []string{`{"schema_version":99}`, `{"schema_version":1,"blocks":[]}`} {
+			if _, e := db.Exec(`UPDATE brand_pages SET published=$2::jsonb WHERE brand_id=$1`, brand.ID, bad); e != nil {
+				t.Fatal(e)
+			}
+			if public() != nil {
+				t.Fatal("invalid published config must not substitute the private draft")
+			}
+		}
+
+	}
 	var product productResponse
 	decode(call("POST", "/products", fmt.Sprintf(`{"brand_id":%d,"name":"Cross Product","description":"Complete product","price_kopecks":125000,"category":"tshirt","materials":["cotton"]}`, brand.ID), editorLogin.AccessToken, "", nil, 201), &product)
 	pid := strconv.FormatInt(product.ID, 10)

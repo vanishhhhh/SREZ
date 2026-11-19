@@ -48,11 +48,13 @@ export function WishlistButton({
   variantId = null,
   name = '',
   compact = false,
+  disabled = false,
 }: {
   productId: number;
   variantId?: number | null;
   name?: string;
   compact?: boolean;
+  disabled?: boolean;
 }) {
   const open = useContext(PickerContext),
     auth = useAuth();
@@ -65,7 +67,7 @@ export function WishlistButton({
       }
       aria-label={name ? `Добавить ${name} в вишлист` : 'Добавить в вишлист'}
       title="Добавить в вишлист"
-      disabled={auth.status === 'checking'}
+      disabled={disabled || auth.status === 'checking'}
       onClick={() => open(productId, variantId, name)}
     >
       <Icon name="bookmark" size={18} />

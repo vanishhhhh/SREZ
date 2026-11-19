@@ -43,9 +43,11 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
 export function FavoriteButton({
   productId,
   className = '',
+  disabled = false,
 }: {
   productId: number;
   className?: string;
+  disabled?: boolean;
 }) {
   const auth = useAuth(),
     buyer = useBuyer(),
@@ -76,7 +78,11 @@ export function FavoriteButton({
       type="button"
       aria-label={selected ? 'Удалить из избранного' : 'Добавить в избранное'}
       aria-pressed={selected}
-      disabled={auth.status === 'checking' || (current && (buyer.busy || buyer.favoritesLoading))}
+      disabled={
+        disabled ||
+        auth.status === 'checking' ||
+        (current && (buyer.busy || buyer.favoritesLoading))
+      }
       onClick={() => void toggle()}
     >
       <Icon name="heart" size={19} />

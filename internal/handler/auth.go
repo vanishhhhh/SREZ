@@ -228,22 +228,16 @@ func (x *authHTTP) login(c *gin.Context) {
 	x.cookie(c, v.Refresh, v.ExpiresAt)
 	c.JSON(200, v)
 }
-func (x *authHTTP) name() string {
-	if x.cfg.LocalHTTP {
-		return "srez_refresh_local"
-	}
-	return "__Host-srez_refresh"
-}
 func (x *authHTTP) cookie(c *gin.Context, token string, expires time.Time) {
 	max := int(time.Until(expires).Seconds())
 	if token == "" {
 		max = -1
 		expires = time.Unix(1, 0)
 	}
-	http.SetCookie(c.Writer, &http.Cookie{Name: x.name(), Value: token, Path: "/", HttpOnly: true, Secure: !x.cfg.LocalHTTP, SameSite: http.SameSiteStrictMode, Expires: expires, MaxAge: max})
+	http.SetCookie(c.Writer, &http.Cookie{Name: x.cfg.RefreshCookieName(), Value: token, Path: "/", HttpOnly: true, Secure: !x.cfg.LocalHTTP, SameSite: http.SameSiteStrictMode, Expires: expires, MaxAge: max})
 }
 func (x *authHTTP) csrf(c *gin.Context) {
-	refresh, _ := c.Cookie(x.name())
+	refresh, _ := c.Cookie(x.cfg.RefreshCookieName())
 	token, e := x.auth.CSRF(c.Request.Context(), refresh)
 	if e != nil {
 		authError(c, e)
@@ -258,7 +252,7 @@ func (x *authHTTP) rotate(c *gin.Context, logout bool) {
 	if !decodeUserRequest(c, &request) {
 		return
 	}
-	refresh, _ := c.Cookie(x.name())
+	refresh, _ := c.Cookie(x.cfg.RefreshCookieName())
 	result, e := x.auth.Refresh(c.Request.Context(), refresh, c.GetHeader("X-CSRF-Token"), logout)
 	if e != nil {
 		authError(c, e)

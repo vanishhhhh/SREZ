@@ -2,10 +2,12 @@ package storage_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -111,7 +113,7 @@ func TestPostgresMigrations(t *testing.T) {
 				}
 			}
 			migrate(t, db)
-			if count(t, db, "schema_migrations") != 15 {
+			if count(t, db, "schema_migrations") != 17 {
 				t.Fatal("wrong migration count")
 			}
 			if existing && count(t, db, "users") != 1 {
@@ -129,6 +131,53 @@ func TestPostgresMigrations(t *testing.T) {
 		})
 	}
 }
+func TestPostgresBrandPageUpgradeFromMain(t *testing.T) {
+	db := testDB(t)
+	oldFiles, err := os.ReadDir("../../migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(t, db, `CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
+	for _, entry := range oldFiles {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".sql") || name >= "016_" {
+			continue
+		}
+		body, err := os.ReadFile("../../migrations/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec(t, db, string(body))
+		if _, err = db.Exec(`INSERT INTO schema_migrations(version, checksum) VALUES ($1, $2)`,
+			name, fmt.Sprintf("%x", sha256.Sum256(body))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if count(t, db, "schema_migrations") != 15 {
+		t.Fatal("expected the base release journal")
+	}
+	seed(t, db)
+	var before []int64
+	err = db.Select(&before, `SELECT id FROM brands WHERE status='active' ORDER BY id`)
+	if err != nil || len(before) == 0 {
+		t.Fatal(len(before), err)
+	}
+	migrate(t, db)
+	migrate(t, db)
+	after, err := storage.NewBrands(db).ListActive(context.Background())
+	if err != nil || len(after) != len(before) || count(t, db, "schema_migrations") != 17 ||
+		count(t, db, "brand_pages") != 0 || count(t, db, "products") != 2 {
+		t.Fatal(len(after), err)
+	}
+	for _, brand := range after {
+		if !slices.Contains(before, brand.ID()) || brand.PublishedPage() != nil {
+			t.Fatal("legacy brand changed on upgrade")
+		}
+	}
+}
+
 func TestPostgresMigrationRollback(t *testing.T) {
 	db := testDB(t)
 	exec(t, db, `CREATE TABLE brands(sentinel TEXT)`)

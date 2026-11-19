@@ -76,6 +76,16 @@ func (t *managementTx) CreateMediaUpload(ctx context.Context, u *usecase.MediaUp
 		return usecase.ErrMediaBusy
 	}
 	a := &u.Asset
+	if a.Purpose == usecase.EditorialMediaPurpose {
+		if e := t.tx.GetContext(ctx, &count, `SELECT
+   (SELECT count(*) FROM brand_editorial_media WHERE brand_id=$1) +
+   (SELECT count(*) FROM media_assets WHERE brand_id=$1 AND purpose='brand_editorial_image' AND state='processing' AND expires_at>now())`, a.BrandID); e != nil {
+			return e
+		}
+		if count >= 100 {
+			return usecase.ErrMediaLibraryFull
+		}
+	}
 	e := t.tx.QueryRowxContext(ctx, `INSERT INTO media_assets(initiated_by,purpose,target_user_id,brand_id,product_id,color_id,bucket,object_key) VALUES($1,$2,NULLIF($3,0),NULLIF($4,0),NULLIF($5,0),NULLIF($6,0),$7,$8) RETURNING id,state,created_at,expires_at`, u.InitiatedBy, a.Purpose, a.TargetUserID, a.BrandID, a.ProductID, a.ColorID, a.Bucket, a.ObjectKey).Scan(&a.ID, &a.State, &a.CreatedAt, &a.ExpiresAt)
 	if e != nil {
 		return e
@@ -133,7 +143,11 @@ func (s *Media) ReadableAsset(ctx context.Context, uid, id int64) (*usecase.Medi
  (r.purpose='user_avatar' AND r.user_id=$2 AND $2>0) OR
  (r.purpose IN ('brand_logo','brand_banner') AND b.status='active') OR
  (r.purpose='product_image' AND b.status='active' AND p.status='published') OR
- (r.purpose<>'user_avatar' AND b.status<>'suspended' AND EXISTS(SELECT 1 FROM brand_memberships m WHERE m.brand_id=r.brand_id AND m.user_id=$2 AND m.status='active' AND m.role IN ('owner','editor')))))`, id, uid)
+ (r.purpose='brand_editorial_image' AND b.status='active' AND EXISTS(
+ SELECT 1 FROM brand_page_media s WHERE s.asset_id=a.id AND s.brand_id=b.id AND s.published)) OR
+ (r.purpose='brand_editorial_image' AND b.status<>'suspended' AND EXISTS(
+ SELECT 1 FROM brand_memberships m WHERE m.brand_id=r.brand_id AND m.user_id=$2 AND m.status='active' AND m.role='owner')) OR
+ (r.purpose NOT IN ('user_avatar','brand_editorial_image') AND b.status<>'suspended'  AND EXISTS(SELECT 1 FROM brand_memberships m WHERE m.brand_id=r.brand_id AND m.user_id=$2 AND m.status='active' AND m.role IN ('owner','editor')))))`, id, uid)
 	return &a, mediaMissing(e)
 }
 func (s *Media) Garbage(ctx context.Context) ([]usecase.MediaAsset, error) {
@@ -142,6 +156,9 @@ func (s *Media) Garbage(ctx context.Context) ([]usecase.MediaAsset, error) {
 		return nil, e
 	}
 	defer tx.Rollback()
+	if e = expireEditorialMedia(ctx, tx); e != nil {
+		return nil, e
+	}
 	// Do not lock parents. GC only terminalizes expired UNREFERENCED assets.
 	// Finishing writers lock their parent, request then asset and recheck expiry.
 	var ids []int64
@@ -233,4 +250,21 @@ func (s *Media) GCBacklog(ctx context.Context) (usecase.MediaGCBacklog, error) {
 	var b usecase.MediaGCBacklog
 	e := s.db.GetContext(ctx, &b, `SELECT count(*) FILTER(WHERE (state='processing' AND expires_at<now()) OR (state='deleting' AND delete_after<now())) AS pending,COALESCE(max(EXTRACT(EPOCH FROM now()-CASE WHEN state='processing' THEN expires_at ELSE delete_after END)) FILTER(WHERE (state='processing' AND expires_at<now()) OR (state='deleting' AND delete_after<now())),0) AS oldest_seconds,count(*) FILTER(WHERE state='deleted' AND reconcile_until>now() AND resweep_after<now()) AS reconciliation FROM media_assets a WHERE ((state='processing' AND expires_at<now()) OR (state='deleting' AND delete_after<now()) OR (state='deleted' AND reconcile_until>now() AND resweep_after<now())) AND NOT EXISTS(SELECT 1 FROM media_references r WHERE r.asset_id=a.id)`)
 	return b, e
+}
+
+// A bounded variant write pins the ready asset before touching object storage.
+func (s *Media) WithReadyMedia(ctx context.Context, id int64, fn func() error) error {
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var locked int64
+	if err = tx.GetContext(ctx, &locked, `SELECT id FROM media_assets WHERE id=$1 AND state='ready' FOR UPDATE`, id); err != nil {
+		return mediaMissing(err)
+	}
+	if err = fn(); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

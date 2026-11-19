@@ -27,7 +27,7 @@ const file = resolve(root, `mvp-go-${mode}.log`), output = openSync(file, 'w');
 const args = mode === 'vet' ? ['vet', './...'] : ['test', './...', '-json', '-p', '1', '-count=1', '-timeout=180s', ...(mode === 'wishlist' ? ['-run', 'Wishlist'] : mode === 'email' ? ['-run','Email|Mail|Verification'] : mode.startsWith('persistence-') ? ['-run', 'TestSeaweedPersistenceAfterRestart'] : [])];
 let result;
 try {
-  result = spawnSync('docker', ['run', '--name', `srez-mvp-${mode}-${Date.now()}`, '--label', 'srez.test-only=true', '--network', 'srez-mvp-tests_default', ...['TEST_DATABASE_URL', 'TEST_MAILPIT_SMTP','TEST_MAILPIT_API', 'TEST_S3_ENDPOINT', 'SREZ_S3_ACCESS_KEY', 'SREZ_S3_SECRET_KEY', 'TEST_MEDIA_PERSISTENCE_SCHEMA', 'TEST_S3_WRITE_RESTART', 'TEST_S3_VERIFY_RESTART'].flatMap(key => ['-e', key]), 'srez-mvp-go-check:local', 'go', ...args], { cwd: root, env, stdio: ['ignore', output, output] });
+  result = spawnSync('docker', ['run', '--rm', '--name', `srez-mvp-${mode}-${Date.now()}`, '--label', 'srez.test-only=true', '--network', 'srez-mvp-tests_default', ...['TEST_DATABASE_URL', 'TEST_MAILPIT_SMTP','TEST_MAILPIT_API', 'TEST_S3_ENDPOINT', 'SREZ_S3_ACCESS_KEY', 'SREZ_S3_SECRET_KEY', 'TEST_MEDIA_PERSISTENCE_SCHEMA', 'TEST_S3_WRITE_RESTART', 'TEST_S3_VERIFY_RESTART'].flatMap(key => ['-e', key]), 'srez-mvp-go-check:local', 'go', ...args], { cwd: root, env, stdio: ['ignore', output, output] });
 } finally { closeSync(output); }
 const rows = readFileSync(file, 'utf8').split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
 const passed=rows.filter(r=>r.Action==='pass'&&r.Test).length;

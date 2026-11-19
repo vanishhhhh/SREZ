@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -14,13 +15,17 @@ const maxJSONBodyBytes = 64 * 1024
 // Read before decoding so the limit applies to malformed JSON and trailing
 // whitespace too, even when Content-Length is unknown.
 func readJSONBody(c *gin.Context) ([]byte, bool) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxJSONBodyBytes)
+	return readBoundedJSONBody(c, maxJSONBodyBytes)
+}
+
+func readBoundedJSONBody(c *gin.Context, limit int64) ([]byte, bool) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limit)
 	defer c.Request.Body.Close()
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			c.JSON(http.StatusRequestEntityTooLarge, errorResponse{Error: "размер JSON-тела не должен превышать 64 КиБ"})
+			c.JSON(http.StatusRequestEntityTooLarge, errorResponse{Error: fmt.Sprintf("размер JSON-тела не должен превышать %d КиБ", limit/1024)})
 		} else {
 			c.JSON(http.StatusBadRequest, errorResponse{Error: "не удалось прочитать JSON-тело"})
 		}

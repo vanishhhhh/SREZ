@@ -11,7 +11,6 @@ export function DashboardLayout() {
   const reload = feed.reload;
   const active = location.pathname.match(/^\/studio\/brands\/(\d+)(?:\/|$)/)?.[1] || '';
   const brand = feed.data?.find((item) => String(item.brand.id) === active);
-  const tab = new URLSearchParams(location.search).get('tab') || 'products';
   useEffect(() => {
     const refresh = () => void reload();
     window.addEventListener('focus', refresh);
@@ -24,8 +23,6 @@ export function DashboardLayout() {
   useEffect(() => {
     void reload();
   }, [location.pathname, reload]);
-  const section = (value: string) =>
-    active && tab === value && location.pathname === `/studio/brands/${active}` ? 'is-active' : '';
   return (
     <div className="dashboard-shell">
       <aside className="dashboard-sidebar" aria-label="Навигация студии">
@@ -85,27 +82,6 @@ export function DashboardLayout() {
                   ? 'Заблокирован'
                   : 'Черновик'}
             </p>
-            <nav className="dashboard-nav dashboard-nav--brand">
-              <Link className={section('products')} to={`/studio/brands/${active}`}>
-                <Icon name="bag" size={18} />
-                Товары
-              </Link>
-              {brand.role === 'owner' && (
-                <>
-                  <Link
-                    className={section('settings')}
-                    to={`/studio/brands/${active}?tab=settings`}
-                  >
-                    <Icon name="image" size={18} />
-                    Оформление и настройки
-                  </Link>
-                  <Link className={section('team')} to={`/studio/brands/${active}?tab=team`}>
-                    <Icon name="user" size={18} />
-                    Команда
-                  </Link>
-                </>
-              )}
-            </nav>
           </>
         )}
         <div className="dashboard-sidebar__foot">

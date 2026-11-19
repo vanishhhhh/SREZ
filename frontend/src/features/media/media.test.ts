@@ -1,7 +1,8 @@
+import { ApiError } from '../../lib/http';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { jsonRequest } from '../../lib/http';
 import { session } from '../../lib/client';
-import { beginUpload, validateFile } from './api';
+import { beginUpload, uploadError, validateFile } from './api';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -60,4 +61,22 @@ describe('Media transport uses Go instead of direct storage', () => {
       ),
     ).toThrow();
   });
+});
+
+it('reports media validation and delivery errors in the field language', () => {
+  const cases = [
+    [400, 'image resolution exceeds limit', '12 миллионов'],
+    [400, 'unsupported image format', 'JPEG, PNG и WebP'],
+    [400, 'damaged image', 'повреждён'],
+    [413, 'image size limit exceeded', '5 МБ'],
+    [429, 'media processing busy', 'другую фотографию'],
+    [503, 'media unavailable', 'Сервер недоступен'],
+    [403, 'operation forbidden', 'права доступа'],
+  ] as const;
+  for (const [status, code, expected] of cases) {
+    const text = uploadError(new ApiError(status, code), 'user_avatar');
+    expect(text).toContain('аватар');
+    expect(text).toContain(expected);
+    expect(text).not.toContain('остатки');
+  }
 });
