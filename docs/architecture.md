@@ -143,7 +143,7 @@ sequenceDiagram
 
 Для POST auth endpoints Origin обязателен и должен точно совпадать с SREZ_PUBLIC_ORIGIN, в том числе для CLI. Для read-only GET /auth/csrf отсутствие Origin разрешено: браузеры могут не отправлять его в обычном same-origin fetch. Явно указанный Origin (включая null) обязан точно совпадать с конфигурацией. Исключение зарегистрировано только на этом GET-маршруте и не ослабляет POST. При наличии Sec-Fetch-Site разрешён только same-origin; cross-site, same-site, none и неизвестные значения отклоняются, независимо от Origin. Отсутствующий Fetch Metadata допустим: при отсутствии обоих заголовков GET использует действующую refresh-cookie, а доступ стороннего браузерного JS к ответу ограничен Same-Origin Policy без CORS. Это совместимость со старыми/небраузерными клиентами, а не доказательство происхождения. GET не изменяет состояние сессии, не обновляет cookie и сохраняет Cache-Control: no-store. Bearer GET/PATCH /profile не требует Origin и не использует refresh-cookie. Для POST auth требуется application/json. Refresh/logout дополнительно требуют refresh-cookie и сессионный X-CSRF-Token. Origin не является доказательством личности для небраузерного клиента; доказательства — секретные токены.
 
-Локальный HTTP разрешается только точным SREZ_AUTH_LOCAL_HTTP=true и origin на localhost/loopback; имя cookie тогда srez_refresh_local, Secure=false. Иначе допустим только HTTPS, cookie использует __Host- и Secure. Очистка повторяет имя/Path/Domain/Secure/SameSite. Срок cookie — оставшийся абсолютный срок сессии. Продакшен-значений ключей/fallback в исходниках нет, отсутствующие/некорректные ключи блокируют запуск приложения.
+Локальный HTTP разрешается только точным SREZ_AUTH_LOCAL_HTTP=true и origin на localhost/loopback; имя cookie тогда srez_refresh_local с опциональным суффиксом окружения, Secure=false. Иначе допустим только HTTPS, cookie использует __Host- и Secure. Очистка повторяет имя/Path/Domain/Secure/SameSite. Срок cookie — оставшийся абсолютный срок сессии. Продакшен-значений ключей/fallback в исходниках нет, отсутствующие/некорректные ключи блокируют запуск приложения.
 
 Same-Origin Policy ограничивает чтение ресурсов браузерным JS; CORS регулирует исключения для такого чтения. SameSite ограничивает отправку cookie между сайтами, но сайт не равен origin. CSRF-защита проверяет конкретный запрос на сервере; JWT аутентифицирует Bearer. CORS/SameSite не заменяют CSRF или авторизацию. План: https://srez.ru/ — React, /api/* — Go за reverse proxy; браузер видит один origin, CORS не требуется. В локальной интеграционной копии React использует Vite proxy: localhost:5174, /api с rewrite на Go8081 и /media без rewrite. changeOrigin:false сохраняет Origin; проверки CSRF/JWT не отключены.
 
@@ -462,3 +462,17 @@ Resend ротирует challenge под user lock, сохраняет account/I
 ## Password Recovery и немедленный отзыв
 
 Миграция015 добавляет purpose-separated password_reset_tokens и persistent IP quota. Сброс использует общий MailSender/SMTP и Argon2 semaphore; под user lock атомарно меняет hash, погашает challenge и отзывает все сессии. Login CreateSession сверяет ожидаемый password_hash, refresh соблюдает user → session lock order. Bearer проверяет session ID/user/expiry/revocation/email одним indexed SELECT, timeout2s, без stale cache. Pool ограничен20 соединениями. Новый reset не подтверждает email и не создаёт сессию. [Подробный контракт](account-recovery.md), [весь API](api-reference.md), [ревизия](project-review.md).
+
+## Brand Page Builder
+
+Миграция `016_brand_page_builder.sql` добавляет `brand_pages`. Запись создаётся при первом сохранении и хранит два JSONB-документа, общую ревизию и ревизию опубликованного снимка. Действующий management usecase проверяет доступ владельца под блокировкой строки бренда. Запись черновика и публикация проверяют ожидаемую ревизию и обновляют запись в той же транзакции.
+
+Публичное чтение активного бренда загружает только `published`. Общий React renderer собирает витрину и приватный предпросмотр из типизированных блоков. Текущие данные бренда и каталога разрешаются при чтении. Палитра хранится вместе с блоками и применяется в пределах витрины. [Модель, ограничения и план Phase 2](brand-page-builder-phase-1.md).
+
+## Редакционные блоки и медиа · Phase 2
+
+`BrandPageConfig` принимает V1 и V2. Переход к V2 происходит при изменении дизайна в редакторе. Поля документов и привязки фото сохраняются атомарно вместе с ревизией. Чтение ранее сохранённой V1-композиции не требует миграции JSON.
+
+`brand_editorial_media` связывает готовый asset с библиотекой бренда. Эта привязка входит в существующее представление `media_references` и удовлетворяет инварианту одного владельца. `brand_page_media` хранит отдельную связь для каждого из двух снимков. Внутри снимка повторное использование фото занимает одну строку. Публичная доставка проверяет актуальную published-ссылку и active-статус бренда. Владелец может читать непубличную библиотеку через Bearer.
+
+Редактор проверяет ревизию под блокировкой бренда, затем блокирует задетые строки assets в порядке ID. GC блокирует только assets, повторно проверяет отсутствие ссылок после блокировки и передаёт удаление прежней отложенной очереди. При последнем удалении ссылки библиотека хранит фото ещё семь дней. [Подробности и результаты ревью](brand-page-builder-phase-2.md).

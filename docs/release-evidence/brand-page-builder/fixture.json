@@ -1,0 +1,2061 @@
+{
+  "probes": {},
+  "results": [
+    {
+      "blocks": 5,
+      "images": 20,
+      "shape": "desktop",
+      "slow": false,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 3,
+        "bytes": 391719,
+        "requests": 3,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 8,
+            "end": 16,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 8,
+            "end": 12,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 47,
+            "end": 49,
+            "transfer": 2834,
+            "body": 2534
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=1440",
+            "start": 68,
+            "end": 74,
+            "transfer": 172902,
+            "body": 172602
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=960",
+            "start": 81,
+            "end": 85,
+            "transfer": 89149,
+            "body": 88849
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=960",
+            "start": 86,
+            "end": 90,
+            "transfer": 130568,
+            "body": 130268
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=1440"
+      },
+      "lcp": 96,
+      "cls": 0.07361966276443545,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.07361966276443545,
+        "urls": 20,
+        "encodedPeak": 2720297,
+        "encodedHeld": 2720297
+      },
+      "transfer": {
+        "ok": 21,
+        "limited": 0,
+        "bytes": 2892899,
+        "requests": 21
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 20,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 5,
+      "images": 20,
+      "shape": "desktop",
+      "slow": false,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 3,
+        "bytes": 391719,
+        "requests": 3,
+        "startup": [
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 3,
+            "end": 7,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 3,
+            "end": 11,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 33,
+            "end": 35,
+            "transfer": 2834,
+            "body": 2534
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=1440",
+            "start": 44,
+            "end": 48,
+            "transfer": 172902,
+            "body": 172602
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=960",
+            "start": 56,
+            "end": 59,
+            "transfer": 89149,
+            "body": 88849
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=960",
+            "start": 60,
+            "end": 65,
+            "transfer": 130568,
+            "body": 130268
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=1440"
+      },
+      "lcp": 64,
+      "cls": 0.07336111111111111,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.07336111111111111,
+        "urls": 20,
+        "encodedPeak": 2720297,
+        "encodedHeld": 2720297
+      },
+      "transfer": {
+        "ok": 21,
+        "limited": 0,
+        "bytes": 2892899,
+        "requests": 21
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 20,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 5,
+      "images": 20,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 170,
+            "end": 1328,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 170,
+            "end": 534,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1372,
+            "end": 1606,
+            "transfer": 2834,
+            "body": 2534
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1610,
+            "end": 2077,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1626,
+            "end": 2094,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2095,
+            "end": 2460,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2096,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 20,
+        "encodedPeak": 924216,
+        "encodedHeld": 924216
+      },
+      "transfer": {
+        "ok": 21,
+        "limited": 0,
+        "bytes": 953709,
+        "requests": 21
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 20,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 5,
+      "images": 20,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 169,
+            "end": 1330,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 169,
+            "end": 535,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1372,
+            "end": 1590,
+            "transfer": 2834,
+            "body": 2534
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1594,
+            "end": 2080,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1607,
+            "end": 2093,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2094,
+            "end": 2462,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2092,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 20,
+        "encodedPeak": 924216,
+        "encodedHeld": 924216
+      },
+      "transfer": {
+        "ok": 21,
+        "limited": 0,
+        "bytes": 953709,
+        "requests": 21
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 20,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 10,
+      "images": 30,
+      "shape": "desktop",
+      "slow": false,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 3,
+        "bytes": 391719,
+        "requests": 3,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 3,
+            "end": 10,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 3,
+            "end": 6,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 31,
+            "end": 33,
+            "transfer": 4506,
+            "body": 4206
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=1440",
+            "start": 43,
+            "end": 48,
+            "transfer": 172902,
+            "body": 172602
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=960",
+            "start": 58,
+            "end": 63,
+            "transfer": 89149,
+            "body": 88849
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=960",
+            "start": 64,
+            "end": 68,
+            "transfer": 130568,
+            "body": 130268
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=1440"
+      },
+      "lcp": 68,
+      "cls": 0.07336111111111111,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.07336111111111111,
+        "urls": 30,
+        "encodedPeak": 4104873,
+        "encodedHeld": 4104873
+      },
+      "transfer": {
+        "ok": 31,
+        "limited": 0,
+        "bytes": 4277475,
+        "requests": 31
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 30,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 10,
+      "images": 30,
+      "shape": "desktop",
+      "slow": false,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 3,
+        "bytes": 391719,
+        "requests": 3,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 3,
+            "end": 10,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 3,
+            "end": 7,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 30,
+            "end": 32,
+            "transfer": 4506,
+            "body": 4206
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=1440",
+            "start": 41,
+            "end": 46,
+            "transfer": 172902,
+            "body": 172602
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=960",
+            "start": 57,
+            "end": 61,
+            "transfer": 89149,
+            "body": 88849
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=960",
+            "start": 61,
+            "end": 67,
+            "transfer": 130568,
+            "body": 130268
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=1440"
+      },
+      "lcp": 64,
+      "cls": 0.07336111111111111,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.07336111111111111,
+        "urls": 30,
+        "encodedPeak": 4104873,
+        "encodedHeld": 4104873
+      },
+      "transfer": {
+        "ok": 31,
+        "limited": 0,
+        "bytes": 4277475,
+        "requests": 31
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 30,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 10,
+      "images": 30,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 169,
+            "end": 1328,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 169,
+            "end": 532,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1366,
+            "end": 1606,
+            "transfer": 4506,
+            "body": 4206
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1611,
+            "end": 2080,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1624,
+            "end": 2095,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2096,
+            "end": 2461,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2092,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 30,
+        "encodedPeak": 1394432,
+        "encodedHeld": 1394432
+      },
+      "transfer": {
+        "ok": 31,
+        "limited": 0,
+        "bytes": 1423925,
+        "requests": 31
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 30,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 10,
+      "images": 30,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 169,
+            "end": 1330,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 169,
+            "end": 541,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1356,
+            "end": 1577,
+            "transfer": 4506,
+            "body": 4206
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1580,
+            "end": 2072,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1591,
+            "end": 2080,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2081,
+            "end": 2447,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2096,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 30,
+        "encodedPeak": 1394432,
+        "encodedHeld": 1394432
+      },
+      "transfer": {
+        "ok": 31,
+        "limited": 0,
+        "bytes": 1423925,
+        "requests": 31
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 30,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "desktop",
+      "slow": false,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 3,
+        "bytes": 391719,
+        "requests": 3,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 3,
+            "end": 10,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 3,
+            "end": 7,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 31,
+            "end": 33,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=1440",
+            "start": 43,
+            "end": 48,
+            "transfer": 172902,
+            "body": 172602
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=960",
+            "start": 58,
+            "end": 62,
+            "transfer": 89149,
+            "body": 88849
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=960",
+            "start": 62,
+            "end": 66,
+            "transfer": 130568,
+            "body": 130268
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=1440"
+      },
+      "lcp": 64,
+      "cls": 0.07336111111111111,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.07336111111111111,
+        "urls": 40,
+        "encodedPeak": 5524755,
+        "encodedHeld": 5524755
+      },
+      "transfer": {
+        "ok": 41,
+        "limited": 0,
+        "bytes": 5697357,
+        "requests": 41
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 40,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "desktop",
+      "slow": false,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 3,
+        "bytes": 391719,
+        "requests": 3,
+        "startup": [
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 3,
+            "end": 8,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 3,
+            "end": 12,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 35,
+            "end": 37,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=1440",
+            "start": 46,
+            "end": 50,
+            "transfer": 172902,
+            "body": 172602
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=960",
+            "start": 58,
+            "end": 62,
+            "transfer": 89149,
+            "body": 88849
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=960",
+            "start": 63,
+            "end": 67,
+            "transfer": 130568,
+            "body": 130268
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=1440"
+      },
+      "lcp": 64,
+      "cls": 0.07336111111111111,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.07336111111111111,
+        "urls": 40,
+        "encodedPeak": 5524755,
+        "encodedHeld": 5524755
+      },
+      "transfer": {
+        "ok": 41,
+        "limited": 0,
+        "bytes": 5697357,
+        "requests": 41
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 40,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 170,
+            "end": 1329,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 170,
+            "end": 533,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1373,
+            "end": 1651,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1655,
+            "end": 2117,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1674,
+            "end": 2132,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2133,
+            "end": 2498,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2128,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 40,
+        "encodedPeak": 1879644,
+        "encodedHeld": 1879644
+      },
+      "transfer": {
+        "ok": 41,
+        "limited": 0,
+        "bytes": 1909137,
+        "requests": 41
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 40,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 1,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 170,
+            "end": 1330,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 170,
+            "end": 534,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1371,
+            "end": 1638,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1643,
+            "end": 2101,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1659,
+            "end": 2117,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2119,
+            "end": 2485,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2112,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 40,
+        "encodedPeak": 1879644,
+        "encodedHeld": 1879644
+      },
+      "transfer": {
+        "ok": 41,
+        "limited": 0,
+        "bytes": 1909137,
+        "requests": 41
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 40,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 2,
+        "bytes": 58986,
+        "requests": 2,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 171,
+            "end": 1321,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 171,
+            "end": 534,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1354,
+            "end": 1599,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1603,
+            "end": 2192,
+            "transfer": 29793,
+            "body": 29493
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2212,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 6,
+        "encodedPeak": 262426,
+        "encodedHeld": 262426
+      },
+      "transfer": {
+        "ok": 7,
+        "limited": 0,
+        "bytes": 291919,
+        "requests": 7
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 6,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 2,
+        "bytes": 58986,
+        "requests": 2,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 336,
+            "end": 1321,
+            "transfer": 0,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 336,
+            "end": 534,
+            "transfer": 0,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1354,
+            "end": 1546,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1552,
+            "end": 1875,
+            "transfer": 29793,
+            "body": 29493
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 1896,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 7,
+        "encodedPeak": 330895,
+        "encodedHeld": 330895
+      },
+      "transfer": {
+        "ok": 8,
+        "limited": 0,
+        "bytes": 360388,
+        "requests": 8
+      },
+      "returnRequests": 1,
+      "cleanup": {
+        "tracked": 7,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": false,
+      "repetition": 1,
+      "first": {
+        "ok": 2,
+        "bytes": 58986,
+        "requests": 2,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 491,
+            "end": 1321,
+            "transfer": 0,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 491,
+            "end": 533,
+            "transfer": 0,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1358,
+            "end": 1546,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1551,
+            "end": 2183,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1563,
+            "end": 2167,
+            "transfer": 29793,
+            "body": 29493
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": false,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2196,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 9,
+        "encodedPeak": 401747,
+        "encodedHeld": 401747
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 0,
+        "bytes": 431240,
+        "requests": 10
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 9,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 2,
+        "bytes": 58986,
+        "requests": 2,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 336,
+            "end": 1322,
+            "transfer": 0,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 336,
+            "end": 526,
+            "transfer": 0,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1352,
+            "end": 1606,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1609,
+            "end": 2229,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 2341,
+            "end": 2655,
+            "transfer": 29793,
+            "body": 29493
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2244,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 6,
+        "encodedPeak": 262426,
+        "encodedHeld": 262426
+      },
+      "transfer": {
+        "ok": 7,
+        "limited": 0,
+        "bytes": 291919,
+        "requests": 7
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 6,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 2,
+        "bytes": 58986,
+        "requests": 2,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 492,
+            "end": 1322,
+            "transfer": 0,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 492,
+            "end": 526,
+            "transfer": 0,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1351,
+            "end": 1552,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1556,
+            "end": 2071,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 2035,
+            "end": 2339,
+            "transfer": 29793,
+            "body": 29493
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2080,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 7,
+        "encodedPeak": 330895,
+        "encodedHeld": 330895
+      },
+      "transfer": {
+        "ok": 8,
+        "limited": 0,
+        "bytes": 360388,
+        "requests": 9
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 8,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": false,
+      "repetition": 2,
+      "first": {
+        "ok": 2,
+        "bytes": 58986,
+        "requests": 2,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 171,
+            "end": 1322,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 171,
+            "end": 526,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1356,
+            "end": 1547,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1552,
+            "end": 1890,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1574,
+            "end": 2035,
+            "transfer": 29793,
+            "body": 29493
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 1912,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 9,
+        "encodedPeak": 401747,
+        "encodedHeld": 401747
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 0,
+        "bytes": 431240,
+        "requests": 10
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 9,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": true,
+      "repetition": 1,
+      "first": {
+        "ok": 3,
+        "bytes": 107684,
+        "requests": 5,
+        "startup": [
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 168,
+            "end": 532,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 168,
+            "end": 1320,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1349,
+            "end": 1613,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1619,
+            "end": 1945,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1640,
+            "end": 1800,
+            "transfer": 333,
+            "body": 33
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 1801,
+            "end": 2161,
+            "transfer": 41659,
+            "body": 41359
+          },
+          {
+            "path": "/api/media/assets/708/content",
+            "query": "?width=480",
+            "start": 2163,
+            "end": 2499,
+            "transfer": 37132,
+            "body": 36832
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 1960,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 7,
+        "encodedPeak": 330895,
+        "encodedHeld": 330895
+      },
+      "transfer": {
+        "ok": 8,
+        "limited": 1,
+        "bytes": 360388,
+        "requests": 10
+      },
+      "returnRequests": 1,
+      "cleanup": {
+        "tracked": 8,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": true,
+      "repetition": 1,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 168,
+            "end": 1320,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 168,
+            "end": 532,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1350,
+            "end": 1613,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1619,
+            "end": 2078,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1640,
+            "end": 2094,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2096,
+            "end": 2453,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2092,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 9,
+        "encodedPeak": 401747,
+        "encodedHeld": 401747
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 0,
+        "bytes": 431240,
+        "requests": 10
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 9,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": true,
+      "repetition": 1,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 5,
+        "startup": [
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 168,
+            "end": 532,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 168,
+            "end": 1320,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1348,
+            "end": 1613,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1619,
+            "end": 1779,
+            "transfer": 333,
+            "body": 33
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1640,
+            "end": 1951,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1953,
+            "end": 2257,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2258,
+            "end": 2619,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": false,
+        "heroSrc": "http://localhost:5175/c7f8d453-33eb-4fd6-ab3e-97bfec40e109?"
+      },
+      "lcp": 2276,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 10,
+        "encodedPeak": 431240,
+        "encodedHeld": 431240
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 1,
+        "bytes": 431240,
+        "requests": 11
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 10,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": true,
+      "repetition": 2,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 4,
+        "startup": [
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 169,
+            "end": 540,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 169,
+            "end": 1330,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1372,
+            "end": 1651,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1656,
+            "end": 2125,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1676,
+            "end": 2138,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2139,
+            "end": 2500,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 2148,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 8,
+        "encodedPeak": 360388,
+        "encodedHeld": 360388
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 0,
+        "bytes": 431240,
+        "requests": 10
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 9,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": true,
+      "repetition": 2,
+      "first": {
+        "ok": 3,
+        "bytes": 107684,
+        "requests": 5,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 169,
+            "end": 1330,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 169,
+            "end": 540,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1374,
+            "end": 1651,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1656,
+            "end": 1988,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1676,
+            "end": 1838,
+            "transfer": 333,
+            "body": 33
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 1839,
+            "end": 2200,
+            "transfer": 41659,
+            "body": 41359
+          },
+          {
+            "path": "/api/media/assets/708/content",
+            "query": "?width=480",
+            "start": 2202,
+            "end": 2543,
+            "transfer": 37132,
+            "body": 36832
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": true,
+        "heroSrc": "/api/media/assets/703/content?width=480"
+      },
+      "lcp": 1996,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 9,
+        "encodedPeak": 401747,
+        "encodedHeld": 401747
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 1,
+        "bytes": 431240,
+        "requests": 11
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 9,
+        "remaining": 0
+      }
+    },
+    {
+      "blocks": 15,
+      "images": 40,
+      "shape": "mobile",
+      "slow": true,
+      "tabs": 3,
+      "isolated": true,
+      "repetition": 2,
+      "first": {
+        "ok": 4,
+        "bytes": 137177,
+        "requests": 5,
+        "startup": [
+          {
+            "path": "/assets/index-CAb-neZE.js",
+            "query": "",
+            "start": 169,
+            "end": 1330,
+            "transfer": 178145,
+            "body": 177845
+          },
+          {
+            "path": "/assets/index-D9KZ2RNx.css",
+            "query": "",
+            "start": 169,
+            "end": 542,
+            "transfer": 19862,
+            "body": 19562
+          },
+          {
+            "path": "/api/brands/builder-audit-mwnkizre",
+            "query": "",
+            "start": 1371,
+            "end": 1651,
+            "transfer": 6188,
+            "body": 5888
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1656,
+            "end": 1824,
+            "transfer": 333,
+            "body": 33
+          },
+          {
+            "path": "/api/media/assets/706/content",
+            "query": "?width=480",
+            "start": 1675,
+            "end": 1988,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/703/content",
+            "query": "?width=480",
+            "start": 1989,
+            "end": 2296,
+            "transfer": 29793,
+            "body": 29493
+          },
+          {
+            "path": "/api/media/assets/707/content",
+            "query": "?width=480",
+            "start": 2297,
+            "end": 2655,
+            "transfer": 41659,
+            "body": 41359
+          }
+        ],
+        "heroFirst": true,
+        "heroFirstCompleted": false,
+        "heroSrc": "http://localhost:5175/d7ea8f4e-3a5c-4a65-86d6-c926356e4210?"
+      },
+      "lcp": 2312,
+      "cls": 0.06306833594518058,
+      "metricsAvailable": true,
+      "end": {
+        "cls": 0.06306833594518058,
+        "urls": 10,
+        "encodedPeak": 431240,
+        "encodedHeld": 431240
+      },
+      "transfer": {
+        "ok": 10,
+        "limited": 1,
+        "bytes": 431240,
+        "requests": 11
+      },
+      "returnRequests": 0,
+      "cleanup": {
+        "tracked": 10,
+        "remaining": 0
+      }
+    }
+  ]
+}

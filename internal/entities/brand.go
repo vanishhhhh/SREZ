@@ -21,6 +21,7 @@ type BrandState struct {
 	LogoMediaID, BannerMediaID                  int64
 	Contacts                                    BrandContacts
 	Appearance                                  BrandAppearance
+	PublishedPage                               *BrandPageConfig
 	Status                                      BrandStatus
 	CreatedAt, UpdatedAt                        time.Time
 }
@@ -183,3 +184,5 @@ func (b *Brand) ChangeBannerMedia(id int64, now time.Time) error {
 	s.BannerMediaID = id
 	return b.change(s, now)
 }
+
+func (b *Brand) PublishedPage() *BrandPageConfig { return b.state.PublishedPage }

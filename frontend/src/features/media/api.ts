@@ -2,7 +2,8 @@ import { session } from '../../lib/client';
 import { ApiError } from '../../lib/http';
 
 export interface UploadTarget {
-  purpose: 'user_avatar' | 'brand_logo' | 'brand_banner' | 'product_image';
+  purpose:
+    'user_avatar' | 'brand_logo' | 'brand_banner' | 'product_image' | 'brand_editorial_image';
   brand_id?: number;
   product_id?: number;
   color_id?: number;
@@ -21,6 +22,24 @@ export function validateFile(file: File) {
     throw new Error('Выберите JPEG, PNG или WebP.');
   if (file.size < 1 || file.size > 5 * 1024 * 1024)
     throw new Error('Размер фотографии должен быть от 1 байта до 5 МБ.');
+}
+export function uploadError(error: unknown, purpose: UploadTarget['purpose']): string {
+  if (!(error instanceof ApiError))
+    return error instanceof Error ? error.message : 'Загрузка прервана.';
+  const fields = {
+    user_avatar: 'аватар',
+    brand_logo: 'логотип',
+    brand_banner: 'баннер',
+    product_image: 'фотографию товара',
+    brand_editorial_image: 'изображение для витрины',
+  };
+  const context = `Не удалось загрузить ${fields[purpose]}.`;
+  if (error.status === 403 || error.status === 404) return context + ' Проверьте права доступа.';
+  if (error.status === 0 || error.status >= 500)
+    return context + ' Сервер недоступен. Попробуйте ещё раз.';
+  if (error.status === 400 && error.code === 'invalid resource data')
+    return context + ' Проверьте файл и повторите загрузку.';
+  return context + ' ' + error.message;
 }
 export async function beginUpload(file: File, target: UploadTarget, signal?: AbortSignal) {
   validateFile(file);

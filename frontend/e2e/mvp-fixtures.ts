@@ -1,4 +1,4 @@
-import { verifyFixtureAccount } from './verification-fixture';
+import { verificationMessage, verifyFixtureAccount } from './verification-fixture';
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 type FilePayload = { name: string; mimeType: string; buffer: Buffer };
@@ -42,6 +42,53 @@ export async function account(api: APIRequestContext, label = 'test'): Promise<A
   const token = (await login.json()).access_token;
   return { username, password: mvpPassword, token, headers: { Authorization: 'Bearer ' + token } };
 }
+export async function registerInUI(
+  page: Page,
+  api: APIRequestContext,
+  label: string,
+  keepReturnPage = false,
+) {
+  const username = 'journey_' + suffix();
+  const email = username + '@example.test';
+  await page.getByLabel('Как к вам обращаться', { exact: true }).fill(label);
+  await page.getByLabel('Имя пользователя', { exact: true }).fill(username);
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Пароль', { exact: true }).fill(mvpPassword);
+  await page.getByRole('button', { name: 'Создать аккаунт', exact: true }).click();
+  await expect(page).toHaveURL(/\/verify-email\/pending$/);
+  const confirmation = keepReturnPage ? await page.context().newPage() : page;
+  try {
+    const { link } = await verificationMessage(api, email);
+    await confirmation.goto(link).catch(() => {
+      throw new Error('Не удалось открыть QA-ссылку подтверждения почты');
+    });
+    await confirmation.getByRole('button', { name: 'Подтвердить почту', exact: true }).click();
+    await expect(confirmation.getByRole('heading', { name: 'Почта подтверждена.' })).toBeVisible();
+  } finally {
+    if (keepReturnPage) await confirmation.close();
+  }
+  if (keepReturnPage) {
+    await page.bringToFront();
+    await page.getByRole('link', { name: /Перейти ко входу/ }).click();
+  } else {
+    await page.getByRole('link', { name: 'Войти в SREZ', exact: true }).click();
+  }
+  await expect(page).toHaveURL(/\/login$/);
+  const identifier = page.getByLabel('Email или имя пользователя', { exact: true });
+  await identifier.fill(username);
+  await page.getByLabel('Пароль', { exact: true }).fill(mvpPassword);
+  const session = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/auth/login' &&
+      response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  const response = await session;
+  expect(response.status()).toBe(200);
+  const token: string = (await response.json()).access_token;
+  return { username, password: mvpPassword, token, headers: { Authorization: 'Bearer ' + token } };
+}
+
 export async function login(page: Page, user: Account) {
   await page.goto('/login');
   await page.getByLabel('Email или имя пользователя', { exact: true }).fill(user.username);

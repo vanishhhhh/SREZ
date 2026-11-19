@@ -32,6 +32,9 @@ func (h *Handler) managementRoutes(x *authHTTP) {
 	// Gin requires identical wildcard names within the GET /brands tree.
 	// These private paths parse :slug as a numeric brand ID.
 	add("GET", "/brands/:slug/manage", h.manageBrand)
+	add("GET", "/brands/:slug/page/manage", h.getBrandPage)
+	add("PUT", "/brands/:id/page/draft", h.saveBrandPage)
+	add("POST", "/brands/:id/page/publish", h.publishBrandPage)
 	add("GET", "/brands/:slug/members", h.members)
 	add("GET", "/brands/:slug/products/manage", h.manageProducts)
 	add("PATCH", "/brands/:id", h.patchBrand)

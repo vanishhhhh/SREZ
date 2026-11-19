@@ -2,6 +2,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
+    public retryAfterMs?: number,
   ) {
     super(friendlyError(status, code));
     this.name = 'ApiError';
@@ -30,7 +31,13 @@ function friendlyError(status: number, code: string): string {
     'inventory update conflict; contact support':
       'Возник конфликт остатка. Повторите чтение заказа или обратитесь в поддержку.',
     'money exceeds supported limit': 'Сумма превышает допустимый предел. Измените состав корзины.',
-    'image size limit exceeded': 'Фотография превышает допустимый размер.',
+    'image size limit exceeded': 'Выберите файл до 5 МБ.',
+    'unsupported image format':
+      'Поддерживаются JPEG, PNG и WebP. Формат должен соответствовать содержимому.',
+    'image resolution exceeds limit':
+      'Максимум 8192 пикселя по стороне и 12 миллионов пикселей всего.',
+    'damaged image': 'Файл повреждён. Выберите другое изображение.',
+    'editorial media library is full': 'В библиотеке достигнут лимит в 100 фотографий.',
     'media processing busy':
       'Сервер обрабатывает другую фотографию. Повторите загрузку через несколько секунд.',
     'invalid credentials': 'Неверный логин или пароль.',
@@ -65,6 +72,8 @@ function friendlyError(status: number, code: string): string {
     'wishlist changed; reload before reordering':
       'Список изменился. Мы обновили его — повторите изменение порядка.',
     'wishlists unavailable': 'Вишлисты временно недоступны. Проверьте запуск актуального Go API.',
+    'brand page version is read-only during rollout':
+      'Сохранение этой версии оформления временно недоступно. Ваши правки остались в редакторе.',
     'operation forbidden': 'Для этого действия недостаточно прав или бренд заблокирован.',
   };
   if (Object.hasOwn(messages, code)) return messages[code];
@@ -148,7 +157,14 @@ export async function jsonRequest<T>(
         data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
           ? data.error
           : 'request failed';
-      throw new ApiError(response.status, code);
+      const retryAfter = response.headers.get('Retry-After');
+      const delay =
+        retryAfter === null
+          ? undefined
+          : /^\d+$/.test(retryAfter)
+            ? Number(retryAfter) * 1000
+            : Math.max(0, Date.parse(retryAfter) - Date.now());
+      throw new ApiError(response.status, code, Number.isFinite(delay) ? delay : undefined);
     }
     return { data: data as T, headers: response.headers };
   } catch (error) {

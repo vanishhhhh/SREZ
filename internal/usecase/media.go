@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -21,9 +22,14 @@ import (
 const MaxMediaBytes int64 = 5 * 1024 * 1024
 const MaxMediaOutputBytes int64 = 8 * 1024 * 1024
 const MaxMediaPixels = 12_000_000
+const EditorialMediaPurpose = "brand_editorial_image"
 
 var ErrMediaTooLarge = errors.New("media exceeds size limit")
 var ErrMediaBucketMismatch = errors.New("media storage bucket configuration mismatch")
+var ErrMediaFormat = fmt.Errorf("%w: unsupported image format", entities.ErrInvalidValue)
+var ErrMediaResolution = fmt.Errorf("%w: image resolution exceeds limit", entities.ErrInvalidValue)
+var ErrMediaCorrupt = fmt.Errorf("%w: damaged image", entities.ErrInvalidValue)
+var ErrMediaLibraryFull = errors.New("editorial media library is full")
 var ErrMediaBusy = errors.New("media processing busy")
 
 // UploadURL remains an adapter capability, not an externally reachable upload flow.
@@ -131,8 +137,11 @@ func mediaKey() (string, error) {
 }
 func (r MediaRequest) target(uid int64) (MediaTarget, error) {
 	t := MediaTarget{Purpose: r.Purpose, BrandID: r.BrandID, ProductID: r.ProductID, ColorID: r.ColorID}
-	if uid <= 0 || r.BrandID < 0 || r.ProductID < 0 || r.ColorID < 0 || !allowedMedia(r.ContentType) || r.SizeBytes <= 0 {
+	if uid <= 0 || r.BrandID < 0 || r.ProductID < 0 || r.ColorID < 0 || r.SizeBytes <= 0 {
 		return t, entities.ErrInvalidValue
+	}
+	if !allowedMedia(r.ContentType) {
+		return t, ErrMediaFormat
 	}
 	if r.SizeBytes > MaxMediaBytes {
 		return t, ErrMediaTooLarge
@@ -143,7 +152,7 @@ func (r MediaRequest) target(uid int64) (MediaTarget, error) {
 			return t, entities.ErrInvalidValue
 		}
 		t.TargetUserID = uid
-	case "brand_logo", "brand_banner":
+	case "brand_logo", "brand_banner", EditorialMediaPurpose:
 		if r.BrandID <= 0 || r.ProductID != 0 || r.ColorID != 0 {
 			return t, entities.ErrInvalidValue
 		}
@@ -365,6 +374,8 @@ func (m *Media) bind(ctx context.Context, v mediaTargetContext, u *MediaUpload) 
 	now := time.Now().UTC()
 	id := u.AssetID
 	switch u.Asset.Purpose {
+	case EditorialMediaPurpose:
+		return v.managementTx.BindBrandEditorialMedia(ctx, id)
 	case "user_avatar":
 		if now.Before(v.user.UpdatedAt()) {
 			now = v.user.UpdatedAt()
@@ -463,26 +474,28 @@ func (m *Media) DeleteTarget(ctx context.Context, uid int64, t MediaTarget) erro
 		return v.tx.SaveMediaBrand(ctx, *v.brand)
 	})
 }
-func (m *Media) read(ctx context.Context, uid, id int64) (*MediaAsset, []byte, error) {
+func (m *Media) read(ctx context.Context, uid, id int64, width int) (*MediaAsset, []byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	a, e := m.repo.ReadableAsset(ctx, uid, id)
-	if e != nil {
-		return nil, nil, e
+	a, err := m.repo.ReadableAsset(ctx, uid, id)
+	if err != nil {
+		return nil, nil, err
 	}
 	if a.Bucket != m.bucket {
 		return nil, nil, ErrMediaBucketMismatch
 	}
-	b, e := m.objects.Get(ctx, a.ObjectKey)
-	if e != nil {
-		return nil, nil, e
+	if width != 0 {
+		if !ValidMediaWidth(width) || !hasMediaVariants(a.Purpose) {
+			return nil, nil, entities.ErrInvalidValue
+		}
+		data, err := m.readVariant(ctx, a, width)
+		return a, data, err
 	}
-	defer b.Close()
-	data, e := io.ReadAll(io.LimitReader(b, MaxMediaOutputBytes+1))
-	if e != nil {
-		return nil, nil, e
+	data, err := m.readObject(ctx, a.ObjectKey)
+	if err != nil {
+		return nil, nil, err
 	}
-	if int64(len(data)) != a.Size || int64(len(data)) > MaxMediaOutputBytes {
+	if int64(len(data)) != a.Size {
 		return nil, nil, ErrConflict
 	}
 	return a, data, nil
@@ -494,13 +507,17 @@ func (m *Media) read(ctx context.Context, uid, id int64) (*MediaAsset, []byte, e
 // Deliver retains its delivery slot until the HTTP response has
 // finished writing. Slow readers cannot accumulate unbounded 8 MiB buffers.
 func (m *Media) Deliver(ctx context.Context, uid, id int64, send func(*MediaAsset, []byte)) error {
+	return m.DeliverSize(ctx, uid, id, 0, send)
+}
+
+func (m *Media) DeliverSize(ctx context.Context, uid, id int64, width int, send func(*MediaAsset, []byte)) error {
 	select {
 	case m.deliveries <- struct{}{}:
 		defer func() { <-m.deliveries }()
 	default:
 		return ErrMediaBusy
 	}
-	a, data, e := m.read(ctx, uid, id)
+	a, data, e := m.read(ctx, uid, id, width)
 	if e != nil {
 		return e
 	}
@@ -528,19 +545,22 @@ func NormalizeImage(data []byte, mime string) ([]byte, string, error) {
 	if int64(len(data)) > MaxMediaBytes {
 		return nil, "", ErrMediaTooLarge
 	}
-	if len(data) == 0 || !allowedMedia(mime) || http.DetectContentType(data) != mime {
-		return nil, "", entities.ErrInvalidValue
+	if !allowedMedia(mime) || http.DetectContentType(data) != mime {
+		return nil, "", ErrMediaFormat
 	}
 	cfg, format, e := image.DecodeConfig(bytes.NewReader(data))
-	if e != nil || cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > 8192 || cfg.Height > 8192 || int64(cfg.Width)*int64(cfg.Height) > MaxMediaPixels {
-		return nil, "", entities.ErrInvalidValue
+	if e != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return nil, "", ErrMediaCorrupt
+	}
+	if cfg.Width > 8192 || cfg.Height > 8192 || int64(cfg.Width)*int64(cfg.Height) > MaxMediaPixels {
+		return nil, "", ErrMediaResolution
 	}
 	if map[string]string{"image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp"}[mime] != format {
-		return nil, "", entities.ErrInvalidValue
+		return nil, "", ErrMediaFormat
 	}
 	img, _, e := image.Decode(bytes.NewReader(data))
 	if e != nil {
-		return nil, "", entities.ErrInvalidValue
+		return nil, "", ErrMediaCorrupt
 	}
 	opaque := true
 	if v, ok := img.(interface{ Opaque() bool }); ok {
@@ -580,6 +600,16 @@ func (m *Media) Cleanup(ctx context.Context) error {
 		if a.Bucket != m.bucket {
 			failures = append(failures, ErrMediaBucketMismatch)
 			continue
+		}
+		if hasMediaVariants(a.Purpose) {
+			var variantFailures []error
+			for _, size := range variantWidths {
+				variantFailures = append(variantFailures, m.objects.Delete(ctx, variantKey(a.ObjectKey, size)))
+			}
+			if e = errors.Join(variantFailures...); e != nil {
+				failures = append(failures, e)
+				continue
+			}
 		}
 		if e = m.objects.Delete(ctx, a.ObjectKey); e != nil {
 			failures = append(failures, e)

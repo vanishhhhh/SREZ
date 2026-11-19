@@ -221,6 +221,14 @@ test('real Go: registration, username/email login, profile, reload, concurrent t
     'Set SREZ_AUTH_E2E_LIVE=1 only with the separate auth test API.',
   );
   expect((await request.get('/api/health')).status()).toBe(200);
+  const otherScopeCookie = {
+    name: 'srez_refresh_local',
+    value: 'integration-session-fixture',
+    url: new URL(baseURL!).origin,
+    httpOnly: true,
+    sameSite: 'Strict' as const,
+  };
+  await context.addCookies([otherScopeCookie]);
   const suffix = Date.now().toString(36);
   const username = 'auth_' + suffix;
   const email = username + '@example.com';
@@ -259,11 +267,13 @@ test('real Go: registration, username/email login, profile, reload, concurrent t
   await page.getByRole('button', { name: 'Сохранить профиль', exact: true }).click();
   await expect(page.locator('.account-summary h2')).toHaveText('Автор SREZ Auth');
   await expect(page.getByLabel('Email', { exact: true })).toHaveAttribute('readonly', '');
-  const before = (await context.cookies()).find((cookie) => cookie.name === 'srez_refresh_local');
+  const before = (await context.cookies()).find(
+    (cookie) => cookie.name === 'srez_refresh_local_qa',
+  );
   expect(!!before && before.httpOnly && before.sameSite === 'Strict').toBe(true);
   await page.reload();
   await expect(page.locator('.account-summary h2')).toHaveText('Автор SREZ Auth');
-  const after = (await context.cookies()).find((cookie) => cookie.name === 'srez_refresh_local');
+  const after = (await context.cookies()).find((cookie) => cookie.name === 'srez_refresh_local_qa');
   expect(!!before && !!after && before.value !== after.value).toBe(true);
   expect(!!before && !!after && Math.abs(before.expires - after.expires) < 2).toBe(true);
   expect(
@@ -306,6 +316,14 @@ test('real Go: registration, username/email login, profile, reload, concurrent t
     await page.screenshot({ path: 'test-results/auth-profile-mobile.png', fullPage: true });
     await page.getByRole('button', { name: 'Выйти из аккаунта', exact: true }).click();
     await expect(second).toHaveURL(/\/login$/);
+    const cookies = await context.cookies();
+    expect(cookies.some((cookie) => cookie.name === 'srez_refresh_local_qa')).toBe(false);
+    expect(
+      cookies.some(
+        (cookie) =>
+          cookie.name === otherScopeCookie.name && cookie.value === otherScopeCookie.value,
+      ),
+    ).toBe(true);
   } finally {
     await second.close();
   }

@@ -1,3 +1,5 @@
+import type { BrandPageAppearance, BrandPageConfig } from './brand-page';
+
 export type Role = 'owner' | 'editor';
 export type ProductStatus = 'draft' | 'published' | 'hidden';
 export type { Profile, AuthResult, RegisterInput } from './auth-types';
@@ -9,7 +11,8 @@ export interface Brand {
   logo_url: string;
   banner_url: string;
   contacts: { email: string; telegram_url: string; website_url: string };
-  appearance: { accent_color: string; background_color: string; text_color: string };
+  appearance: BrandPageAppearance;
+  page?: BrandPageConfig;
   status: 'draft' | 'active' | 'suspended';
   created_at: string;
   updated_at: string;
@@ -94,7 +97,7 @@ export type ProductInput = Pick<
   Product,
   'name' | 'description' | 'price_kopecks' | 'category' | 'materials'
 >;
-export type BrandInput = Pick<Brand, 'name' | 'slug' | 'description' | 'contacts' | 'appearance'>;
+export type BrandInput = Pick<Brand, 'name' | 'slug' | 'description' | 'contacts'>;
 export const categories = [
   ['tshirt', 'Футболки'],
   ['hoodie', 'Худи и свитшоты'],

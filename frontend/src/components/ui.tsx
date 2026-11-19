@@ -258,11 +258,32 @@ export function Media({
   eager?: boolean;
   authenticated?: boolean;
 }) {
-  const loaded = useImage(src, authenticated);
+  const placeholder = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(false);
+  const loaded = useImage(src, authenticated, eager || nearViewport, eager);
+  useEffect(() => {
+    const node = placeholder.current;
+    if (!node || eager || nearViewport || !loaded.loading) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setNearViewport(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '260px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [eager, src, nearViewport, loaded.loading]);
   const resolved = loaded.src;
   if (loaded.loading)
     return (
-      <div className={`media ${className}`} data-media-src={src}>
+      <div ref={placeholder} className={`media ${className}`} data-media-src={src}>
         <span className="media__loading skeleton" aria-label="Загружаем фото" />
       </div>
     );

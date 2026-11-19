@@ -1,0 +1,18 @@
+{
+  "seaweedDown": 503,
+  "seaweedRecovery": "same SHA-256",
+  "databaseDown": 500,
+  "databaseRecovery": "same brand",
+  "appRecovery": "same derivative SHA-256",
+  "writeGate": {
+    "publicRead": 3,
+    "authenticatedRead": 3,
+    "publish": 503,
+    "revisionUnchanged": true
+  },
+  "localAuthIsolation": {
+    "qaTwoTabs": "restored",
+    "integration": "anonymous",
+    "mutatedOnlyQA": true
+  }
+}

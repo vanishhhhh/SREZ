@@ -55,14 +55,22 @@ func Key(prefix string) (string, error) {
 var errStorage = errors.New("object storage operation failed")
 
 func safe(e error) error {
-	if e != nil {
-		var status interface{ HTTPStatusCode() int }
-		if errors.As(e, &status) {
-			return fmt.Errorf("object storage operation failed (HTTP %d)", status.HTTPStatusCode())
-		}
-		return errStorage
+	if e == nil {
+		return nil
 	}
-	return nil
+	var response interface{ HTTPStatusCode() int }
+	if !errors.As(e, &response) {
+		return usecase.ErrMediaStorageUnavailable
+	}
+	status := response.HTTPStatusCode()
+	switch {
+	case status == http.StatusNotFound:
+		return usecase.ErrMediaObjectMissing
+	case status == 0 || status == http.StatusTooManyRequests || status >= http.StatusInternalServerError:
+		return usecase.ErrMediaStorageUnavailable
+	default:
+		return fmt.Errorf("object storage operation failed (HTTP %d)", status)
+	}
 }
 func (s *S3) Ready(ctx context.Context) error {
 	_, e := s.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: &s.bucket})

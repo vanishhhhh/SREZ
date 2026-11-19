@@ -40,7 +40,7 @@ JWT только в JS памяти, refresh HttpOnly. No-store; sensitive ст�
 | ----------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | GET /health       | —                                                                        | 200 {status:"ok"}; состояние процесса, не глубокая проверка БД                     |
 | GET /brands       | —                                                                        | 200 Brand[] только active                                                          |
-| GET /brands/:slug | —                                                                        | 200 Brand с contacts/appearance/изображениями; 404 inactive/unknown                |
+| GET /brands/:slug | —                                                                        | 200 Brand с contacts/appearance/изображениями и опциональным page; 404 inactive/unknown                |
 | GET /products     | category,brand_id,size,color,min_price,max_price,sort,page,limit в query | 200 ProductCard[]; X-Total-Count/X-Page/X-Limit/X-Total-Pages; 400 неверный фильтр |
 | GET /products/:id | —                                                                        | 200 Product с colors/images/variants; 404 hidden/draft/inactive brand              |
 | GET /projects     | —                                                                        | 200 фиксированный учебный список; legacy совместимость, frontend не использует     |
@@ -68,6 +68,18 @@ JWT только в JS памяти, refresh HttpOnly. No-store; sensitive ст�
 | GET /brands/:id/products/manage      | E         | —                                         | 200 Product[], включая draft/hidden                                              |
 
 Внутренний wildcard GET назван :slug из-за Gin routing tree, но private endpoints выше принимают числовой ID. Чужой private ресурс даёт404, owner-only операция для editor —403, конфликт slug/перехода —409. Передача owner не реализована.
+
+## Оформление страницы бренда
+
+| Метод и URL | Доступ | JSON запроса | Успех |
+| --- | --- | --- | --- |
+| GET /brands/:id/page/manage | O | — | 200 состояние редактора |
+| PUT /brands/:id/page/draft | O | `{revision, config}` | 200 сохранённый черновик и новая ревизия |
+| POST /brands/:id/page/publish | O | `{revision}` | 200 опубликованный снимок и новая ревизия |
+
+Состояние редактора содержит `draft`, `published`, `revision` и `published_revision`. До первого сохранения GET возвращает стартовый черновик с ревизией 0, а опубликованные поля равны `null`. Для публикации нужен сохранённый черновик. Устаревшая ревизия возвращает 409, некорректная конфигурация 400, тело больше 128 КиБ 413. Маршруты используют действующую JWT-аутентификацию и `Cache-Control: no-store`. Активный editor и владелец приостановленного бренда получают 403. Чужой бренд и отозванный доступ дают 404.
+
+Публичный `GET /brands/:slug` включает `page` только при наличии опубликованного снимка для активного бренда. Публикация оформления и статус бренда управляются отдельными операциями. [Исходная схема V1 и правила конфигурации](brand-page-builder-phase-1.md#architecture).
 
 ## Товары и PVM
 
@@ -113,6 +125,8 @@ ManagedColor: id,product_id,color,images. ManagedVariant: id,product_color_id,si
 
 Purpose: user_avatar/brand_logo/brand_banner/product_image. Target IDs: brand_id либо product_id/color_id/image_id по назначению. Backend ограничивает размер/декодирование/пиксели, проверяет MIME по содержимому, повторно проверяет RBAC и не выдаёт приватные S3 credentials. Браузер отправляет File через Go, не напрямую в bucket. Legacy HTTPS и managed `/media/assets/:id/content` поддерживаются фронтом; ошибка изображения даёт placeholder.
 
+Для доставки готового файла временная недоступность объектного хранилища возвращает `503` и `Retry-After: 1`. Ответ имеет `Cache-Control: no-store`. Ограничение параллельной доставки возвращает `429` и тот же интервал. Таким образом UI может ограниченно повторить чтение при обоих сбоях.
+
 ## Покупатель
 
 [DTO избранного, корзины и заказов, ошибки и конкуренция](buyer-shopping.md). Все маршруты B, владелец только из JWT. Клиентские цены/суммы/owner_id не принимаются.
@@ -153,3 +167,17 @@ Purpose: user_avatar/brand_logo/brand_banner/product_image. Target IDs: brand_id
 | GET /wishlists/shared/:token         | —                                      | 200 public DTO без владельца/private fields; недоступная ссылка404 |
 
 До20 списков по200 элементов, один product на список. Foreign/hidden объекты не раскрываются, public выдача заново фильтрует hidden products/inactive brands. Hash capability хранится отдельно от encrypted owner recovery; ключ wishlist независим от Auth. URL capability нельзя журналировать; уже прочитанное гостем отозвать из его памяти невозможно.
+
+## Редакционное оформление V2
+
+Существующие маршруты управления оформлением принимают `schema_version: 1 | 2`. Поле `media_ids` в приватном ответе перечисляет готовые фото библиотеки выбранного бренда. Оно отсутствует в публичном Brand. Лимит запроса управления оформлением — 128 КиБ, максимум 20 блоков в V2. В V1 сохраняется набор из 3–4 блоков. Остальные правила ревизии и публикации действуют для обеих версий.
+
+Новые типы V2: `image`, `photo-text`, `horizontal-gallery`, `vertical-gallery`, `editorial-grid` и `text`. Их `content.source` равно `editorial`. Изображение задаёт безопасный integer `media_id`, опциональные `ratio` и `alt`, и нормализованные пары `crop` и `mobile_crop` с `x` и `y` от 0 до 1. Состав, размеры, интервалы и число фото ограничены пресетами соответствующего блока. Текст хранится обычной строкой.
+
+Для загрузки в библиотеку владелец отправляет в `POST /media/uploads` обычный запрос Media Storage с `purpose: "brand_editorial_image"` и `brand_id`, затем передаёт файл в выданный `content_url`. Готовый `media_id` доступен для повторного использования. Публичный `GET /media/assets/:id/content` выдаёт редакционное фото только пока оно находится в опубликованном оформлении активного бренда. Для непубличных фото требуется Bearer владельца.
+
+При проверке файла Media API может вернуть 400 с кодом `unsupported image format`, `image resolution exceeds limit` или `damaged image`, 413 при превышении размера, 429 при занятости обработчика и 409 при заполнении редакционной библиотеки. Причины передаются в существующем поле `error`.
+
+### Композиции V3
+
+`schema_version: 3` использует те же маршруты и ревизии. Блок может содержать `composition` с пресетами `spacing` (`compact`, `default`, `spacious`), `vertical` (`top`, `center`, `bottom`) и `text_width` (`narrow`, `regular`, `wide`). Последние два поля применяются только к соответствующим текстовым блокам. История опциональна и поддерживает одно готовое редакционное фото текущего бренда. Новый пресет `text-first` относится к «Фото + текст», `unequal` и `staggered` относятся к сетке. V1 и V2 сохраняют прежнюю валидацию.

@@ -2,7 +2,11 @@ package entities
 
 // BrandAppearance is a value object. Empty colors use the application's defaults.
 // CSS HEX forms #RGB, #RGBA, #RRGGBB and #RRGGBBAA are accepted.
-type BrandAppearance struct{ AccentColor, BackgroundColor, TextColor string }
+type BrandAppearance struct {
+	AccentColor     string `json:"accent_color"`
+	BackgroundColor string `json:"background_color"`
+	TextColor       string `json:"text_color"`
+}
 
 func NewBrandAppearance(accent, background, text string) (BrandAppearance, error) {
 	a := BrandAppearance{AccentColor: accent, BackgroundColor: background, TextColor: text}

@@ -5,6 +5,7 @@ import {
   login,
   noOverflow,
   observeScriptErrors,
+  registerInUI,
   requireMVP,
   seedCatalog,
   suffix,
@@ -20,15 +21,16 @@ test('seller: owner creates brand and product entirely in UI, publishes, invites
 }) => {
   const api = await playwright.request.newContext({ baseURL });
   const editorContext = await browser.newContext();
-  const editorPage = await editorContext.newPage();
   try {
-    const owner = await account(api, 'owner'),
-      editor = await account(api, 'edit');
-    const errors = observeScriptErrors(page),
-      editorErrors = observeScriptErrors(editorPage);
+    const editor = await account(api, 'edit');
+    const errors = observeScriptErrors(page);
     const tag = suffix(),
       name = 'MVP Heavy Hoodie ' + tag;
-    await login(page, owner);
+    await page.goto('/register');
+    await registerInUI(page, api, 'Владелец бренда QA');
+    await expect(page).toHaveURL(/\/account$/);
+    await page.getByRole('link', { name: 'Студия бренда', exact: true }).click();
+    await expect(page).toHaveURL(/\/studio$/);
     await page.goto('/studio/brands/new');
     await page.getByLabel('Название бренда', { exact: true }).fill('MVP Studio ' + tag);
     await page.getByLabel(/^Адрес бренда/).fill('mvp-studio-' + tag);
@@ -42,6 +44,8 @@ test('seller: owner creates brand and product entirely in UI, publishes, invites
     await page
       .getByLabel('Описание бренда', { exact: true })
       .fill('Авторский streetwear. Плотные ткани, свободные силуэты и собственный голос.');
+    await page.getByText('Контакты', { exact: true }).click();
+    await page.getByLabel('Email бренда', { exact: true }).fill('atelier@example.test');
     await page.getByRole('button', { name: 'Сохранить настройки', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
     await uploadInUI(page, 'Загрузить логотип', 55);
@@ -50,6 +54,9 @@ test('seller: owner creates brand and product entirely in UI, publishes, invites
     await expect(
       page.getByRole('button', { name: 'Снять с публикации', exact: true }),
     ).toBeVisible();
+    const publishedBrand = await api.get('/api/brands/mvp-studio-' + tag);
+    expect(publishedBrand.status()).toBe(200);
+    expect((await publishedBrand.json()).contacts.email).toBe('atelier@example.test');
     await page.goto(`/studio/brands/${brand}/products/new`);
     await page.getByLabel('Название товара', { exact: true }).fill(name);
     await page.getByLabel('Категория', { exact: true }).selectOption('hoodie');
@@ -109,6 +116,8 @@ test('seller: owner creates brand and product entirely in UI, publishes, invites
     await page.getByLabel('Имя пользователя редактора', { exact: true }).fill(editor.username);
     await page.getByRole('button', { name: 'Пригласить', exact: true }).click();
     await expect(page.locator('.member-row').filter({ hasText: 'Приглашение' })).toHaveCount(1);
+    const editorPage = await editorContext.newPage();
+    const editorErrors = observeScriptErrors(editorPage);
     await login(editorPage, editor);
     await editorPage.goto('/studio/invitations');
     await editorPage.getByRole('button', { name: 'Принять', exact: true }).click();

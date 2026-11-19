@@ -210,6 +210,14 @@ test('media/PVM: file uploads for avatar, brand logo/banner and product images p
     await expect(page.locator('.account-summary h2')).toHaveText('Автор интеграции');
     expect(profileBody).toEqual({ display_name: 'Автор интеграции' });
     const file = { name: 'srez.png', mimeType: 'image/png', buffer: fixturePNG() };
+    await page.getByLabel('Загрузить аватар').setInputFiles({
+      ...file,
+      buffer: file.buffer.subarray(0, 14),
+    });
+    await page.getByRole('button', { name: 'Загрузить фотографию', exact: true }).click();
+    await expect(
+      page.getByText('Не удалось загрузить аватар. Файл повреждён.', { exact: false }),
+    ).toBeVisible();
     await uploadInUI(page, 'Загрузить аватар', 75, file);
     await expect(page.getByRole('button', { name: 'Удалить аватар', exact: true })).toBeVisible();
     await expect(page.locator('.account-summary img')).toHaveAttribute('src', /^blob:/);

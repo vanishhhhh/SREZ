@@ -40,6 +40,10 @@ test('wishlists: create, add selected variants and catalog products, reorder, sh
     await expect(page).toHaveURL(/\/wishlists\/\d+$/);
     const id = Number(new URL(page.url()).pathname.split('/').at(-1));
     await expect(
+      page.getByText('Без публичной ссылки список доступен только твоему аккаунту.'),
+    ).toBeVisible();
+    await expect(page.getByText(/ПОДЕЛИТЬСЯ ВЗГЛЯДОМ|СОБРАНО ТОБОЙ/)).toHaveCount(0);
+    await expect(
       page.getByRole('dialog', { name: 'Остались несохранённые изменения' }),
     ).not.toBeVisible();
     await page.goto('/products/' + data.products[0].id);
@@ -93,6 +97,8 @@ test('wishlists: create, add selected variants and catalog products, reorder, sh
     });
     await expect(visitor.getByRole('heading', { level: 1 })).toHaveText(title + ' / edit');
     await expect(visitor.locator('.product-tile')).toHaveCount(2);
+    await expect(visitor.getByText('Моя подборка независимых вещей.')).toBeVisible();
+    await expect(visitor.getByText(/ЛИЧНЫЙ ВЗГЛЯД|У каждого свой SREZ/)).toHaveCount(0);
     await expect(visitor.getByRole('button', { name: 'Сохранить описание' })).toHaveCount(0);
     expect(
       (

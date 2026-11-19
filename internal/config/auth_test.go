@@ -40,3 +40,14 @@ func TestAuthConfig(t *testing.T) {
 		t.Fatal("insecure public cookies")
 	}
 }
+
+func TestRefreshCookieNamesIsolateLocalEnvironments(t *testing.T) {
+	integration := Auth{LocalHTTP: true}
+	qa := Auth{LocalHTTP: true, LocalCookieScope: "qa"}
+	production := Auth{}
+	if integration.RefreshCookieName() != "srez_refresh_local" ||
+		qa.RefreshCookieName() != "srez_refresh_local_qa" ||
+		production.RefreshCookieName() != "__Host-srez_refresh" {
+		t.Fatal("unexpected refresh cookie scopes")
+	}
+}
