@@ -56,33 +56,34 @@ export async function registerInUI(
   await page.getByLabel('Пароль', { exact: true }).fill(mvpPassword);
   await page.getByRole('button', { name: 'Создать аккаунт', exact: true }).click();
   await expect(page).toHaveURL(/\/verify-email\/pending$/);
-  const confirmation = keepReturnPage ? await page.context().newPage() : page;
-  try {
-    const { link } = await verificationMessage(api, email);
-    await confirmation.goto(link).catch(() => {
-      throw new Error('Не удалось открыть QA-ссылку подтверждения почты');
-    });
-    await confirmation.getByRole('button', { name: 'Подтвердить почту', exact: true }).click();
-    await expect(confirmation.getByRole('heading', { name: 'Почта подтверждена.' })).toBeVisible();
-  } finally {
-    if (keepReturnPage) await confirmation.close();
-  }
+  const { link } = await verificationMessage(api, email);
+  await page.goto(link).catch(() => {
+    throw new Error('Не удалось открыть QA-ссылку подтверждения почты');
+  });
+  await page.getByRole('button', { name: 'Подтвердить почту', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Почта подтверждена.' })).toBeVisible();
   if (keepReturnPage) {
-    await page.bringToFront();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/verify-email\/pending$/);
     await page.getByRole('link', { name: /Перейти ко входу/ }).click();
   } else {
     await page.getByRole('link', { name: 'Войти в SREZ', exact: true }).click();
   }
   await expect(page).toHaveURL(/\/login$/);
   const identifier = page.getByLabel('Email или имя пользователя', { exact: true });
-  await identifier.fill(username);
-  await page.getByLabel('Пароль', { exact: true }).fill(mvpPassword);
+  const password = page.getByLabel('Пароль', { exact: true });
+  await identifier.click();
+  await identifier.pressSequentially(username);
+  await page.keyboard.press('Tab');
+  await expect(password).toBeFocused();
+  await password.pressSequentially(mvpPassword);
+  await expect(identifier).toHaveValue(username);
   const session = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === '/api/auth/login' &&
       response.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  await password.press('Enter');
   const response = await session;
   expect(response.status()).toBe(200);
   const token: string = (await response.json()).access_token;
