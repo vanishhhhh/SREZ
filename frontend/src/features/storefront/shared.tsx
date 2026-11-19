@@ -93,6 +93,7 @@ export function ProductCollection({
   reload,
   empty,
   catalog = false,
+  preview = false,
 }: {
   loading: boolean;
   error: string;
@@ -100,6 +101,7 @@ export function ProductCollection({
   reload: () => Promise<void>;
   empty?: ReactNode;
   catalog?: boolean;
+  preview?: boolean;
 }) {
   if (loading) return <ProductSkeletons count={catalog ? 6 : 4} catalog={catalog} />;
   if (error) return <LoadError message={error} retry={reload} />;
@@ -112,7 +114,7 @@ export function ProductCollection({
   return (
     <div className={`product-grid ${catalog ? 'product-grid--catalog' : ''}`}>
       {data.items.map((product) => (
-        <ProductTile key={product.id} product={product} />
+        <ProductTile key={product.id} product={product} preview={preview} />
       ))}
     </div>
   );

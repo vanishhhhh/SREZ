@@ -342,7 +342,13 @@ function MediaFrame({
     </div>
   );
 }
-export function ProductTile({ product }: { product: ProductCard }) {
+export function ProductTile({
+  product,
+  preview = false,
+}: {
+  product: ProductCard;
+  preview?: boolean;
+}) {
   return (
     <article className="product-tile">
       <Link className="product-tile__link" to={`/products/${product.id}`}>
@@ -366,8 +372,12 @@ export function ProductTile({ product }: { product: ProductCard }) {
           )}
         </div>
       </Link>
-      <FavoriteButton productId={product.id} className="product-tile__favorite" />
-      <WishlistButton productId={product.id} name={product.name} compact />
+      <FavoriteButton
+        productId={product.id}
+        className="product-tile__favorite"
+        disabled={preview}
+      />
+      <WishlistButton productId={product.id} name={product.name} compact disabled={preview} />
     </article>
   );
 }

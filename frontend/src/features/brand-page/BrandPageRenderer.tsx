@@ -105,7 +105,7 @@ export function BrandPageRenderer({
                     Фильтры каталога <Icon name="arrow" />
                   </Link>
                 </div>
-                <ProductCollection {...products} />
+                <ProductCollection {...products} preview={!!preview} />
                 {!products.loading && products.data && (
                   <Pagination data={products.data} onPage={onPage} />
                 )}

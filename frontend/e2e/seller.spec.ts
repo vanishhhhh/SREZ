@@ -29,9 +29,10 @@ test('seller: owner creates brand and product entirely in UI, publishes, invites
     await page.goto('/register');
     await registerInUI(page, api, 'Владелец бренда QA');
     await expect(page).toHaveURL(/\/account$/);
-    await page.getByRole('link', { name: 'Студия бренда', exact: true }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Студия бренда', exact: true }).click();
     await expect(page).toHaveURL(/\/studio$/);
-    await page.goto('/studio/brands/new');
+    await page.getByRole('link', { name: 'Создать первый бренд', exact: true }).click();
+    await expect(page).toHaveURL(/\/studio\/brands\/new$/);
     await page.getByLabel('Название бренда', { exact: true }).fill('MVP Studio ' + tag);
     await page.getByLabel(/^Адрес бренда/).fill('mvp-studio-' + tag);
     await page.getByRole('button', { name: /Создать бренд/ }).click();

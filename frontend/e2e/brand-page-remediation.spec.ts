@@ -293,6 +293,22 @@ test('preview reproduces published geometry and transfers focus on a phone', asy
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/studio/brands/${brand.id}?tab=page`);
     const preview = frame(page);
+    const buyerState = async () =>
+      Promise.all(
+        ['/api/favorites', '/api/wishlists'].map(async (path) => {
+          const response = await api.get(path, { headers: owner.headers });
+          expect(response.status()).toBe(200);
+          return response.json();
+        }),
+      );
+    const beforePreview = await buyerState();
+    const mutations: string[] = [];
+    page.on('request', (request) => {
+      const path = new URL(request.url()).pathname;
+      if (/^\/api\/(favorites|wishlists)(\/|$)/.test(path) && request.method() !== 'GET') {
+        mutations.push(request.method() + ' ' + path);
+      }
+    });
     const blockControls = page.locator('.brand-builder__blocks > li');
     await expect(blockControls).toHaveCount(13);
     const actionNames = await blockControls
@@ -323,6 +339,10 @@ test('preview reproduces published geometry and transfers focus on a phone', asy
             return {
               width: Math.round(e.getBoundingClientRect().width),
               child: Math.round(child.getBoundingClientRect().width),
+              cards: Array.from(child.querySelectorAll('.product-tile'), (tile) => {
+                const rect = tile.getBoundingClientRect();
+                return [Math.round(rect.width), Math.round(rect.height)];
+              }),
               columns: style.gridTemplateColumns,
               font: style.fontSize,
             };
@@ -330,6 +350,23 @@ test('preview reproduces published geometry and transfers focus on a phone', asy
         if (id === 'products') {
           await expect(preview.locator(selector + ' .product-tile')).toHaveCount(4);
           await expect(visitor.locator(selector + ' .product-tile')).toHaveCount(4);
+          const previewTiles = preview.locator(selector + ' .product-tile');
+          const previewTile = previewTiles.first();
+          const publicTile = visitor.locator(selector + ' .product-tile').first();
+          const favorite = previewTile.getByRole('button', { name: 'Добавить в избранное' });
+          const wishlist = previewTile.getByRole('button', { name: /в вишлист/ });
+          await expect(favorite).toBeDisabled();
+          await expect(wishlist).toBeDisabled();
+          await expect(
+            publicTile.getByRole('button', { name: 'Добавить в избранное' }),
+          ).toBeEnabled();
+          await expect(publicTile.getByRole('button', { name: /в вишлист/ })).toBeEnabled();
+          await favorite.click({ force: true });
+          await wishlist.click({ force: true });
+          await previewTile.getByRole('link').focus();
+          await page.keyboard.press('Tab');
+          await expect(previewTiles.nth(1).getByRole('link')).toBeFocused();
+          await expect(page.getByRole('dialog')).toHaveCount(0);
         }
         const publishedGeometry = await measure(visitor.locator(selector));
         await expect.poll(() => measure(preview.locator(selector))).toEqual(publishedGeometry);
@@ -349,6 +386,8 @@ test('preview reproduces published geometry and transfers focus on a phone', asy
       }
       await visitor.screenshot({ path: info.outputPath('published-' + width + '.png') });
     }
+    expect(await buyerState()).toEqual(beforePreview);
+    expect(mutations).toEqual([]);
     await page.setViewportSize({ width: 390, height: 844 });
     const first = page.locator('[data-editor-id="visual-3"]');
     const second = page.locator('[data-editor-id="visual-4"]');
