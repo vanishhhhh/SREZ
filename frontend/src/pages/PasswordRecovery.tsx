@@ -82,7 +82,7 @@ export function ResetPasswordPage() {
     e.preventDefault();
     await action.run(async () => {
       if (!passwordValid(password))
-        throw Error('Пароль: минимум 12 символов и максимум 1024 байта.');
+        throw Error('Пароль: минимум 8 символов и максимум 1024 байта.');
       if (password !== repeat) throw Error('Пароли не совпадают.');
       await session.resetPassword(token, password);
       setPassword('');
@@ -122,16 +122,16 @@ export function ResetPasswordPage() {
                   label="Новый пароль"
                   autoComplete="new-password"
                   required
-                  minLength={12}
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  hint="Минимум 12 символов. Пробелы сохраняются."
+                  hint="Минимум 8 символов. Пробелы сохраняются."
                 />
                 <PasswordField
                   label="Повторите новый пароль"
                   autoComplete="new-password"
                   required
-                  minLength={12}
+                  minLength={8}
                   value={repeat}
                   onChange={(e) => setRepeat(e.target.value)}
                 />

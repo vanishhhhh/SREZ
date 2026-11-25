@@ -163,7 +163,7 @@ func (x *authHTTP) register(c *gin.Context) {
 		return
 	}
 	if !security.ValidPassword(r.Password) {
-		c.JSON(400, errorResponse{"password must contain at least 12 characters and at most 1024 bytes"})
+		c.JSON(400, errorResponse{"password must contain at least 8 characters and at most 1024 bytes"})
 		return
 	}
 	u, e := x.auth.RegisterFrom(c.Request.Context(), r.Email, r.Username, r.DisplayName, r.Password, c.ClientIP())

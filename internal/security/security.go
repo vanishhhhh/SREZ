@@ -35,7 +35,7 @@ func ValidRandom(s string) bool {
 	return e == nil && len(b) == 32 && base64.RawURLEncoding.EncodeToString(b) == s
 }
 func ValidPassword(s string) bool {
-	return utf8.ValidString(s) && utf8.RuneCountInString(s) >= 12 && len(s) <= 1024
+	return utf8.ValidString(s) && utf8.RuneCountInString(s) >= 8 && len(s) <= 1024
 }
 
 type Passwords struct {

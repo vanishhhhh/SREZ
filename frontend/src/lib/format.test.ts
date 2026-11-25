@@ -34,9 +34,9 @@ describe('safe user inputs', () => {
     expect(httpsURL('', true)).toBe(true);
   });
   it('checks Unicode character count and UTF-8 password length without trimming', () => {
-    expect(passwordValid('a'.repeat(11))).toBe(false);
-    expect(passwordValid('я'.repeat(12))).toBe(true);
-    expect(passwordValid('🙂'.repeat(11))).toBe(false);
+    expect(passwordValid('a'.repeat(7))).toBe(false);
+    expect(passwordValid('я'.repeat(8))).toBe(true);
+    expect(passwordValid('🙂'.repeat(7))).toBe(false);
     expect(passwordValid('🙂'.repeat(257))).toBe(false);
   });
   it('never accepts cross-origin or auth-loop return paths', () => {

@@ -38,7 +38,7 @@ export function httpsURL(value: string, optional = false): boolean {
   }
 }
 export function passwordValid(value: string): boolean {
-  return Array.from(value).length >= 12 && new TextEncoder().encode(value).length <= 1024;
+  return Array.from(value).length >= 8 && new TextEncoder().encode(value).length <= 1024;
 }
 export function initials(value: string): string {
   return (

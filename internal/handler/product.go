@@ -23,6 +23,10 @@ func (h *Handler) GetProducts(c *gin.Context) {
 		return
 	}
 	page, err := h.products.Browse(c.Request.Context(), query)
+	if errors.Is(err, usecase.ErrCatalogSearchUnavailable) {
+		c.JSON(http.StatusServiceUnavailable, errorResponse{Error: "поиск по каталогу временно недоступен"})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: "не удалось загрузить товары"})
 		return

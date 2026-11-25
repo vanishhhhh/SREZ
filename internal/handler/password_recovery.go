@@ -29,7 +29,7 @@ func (x *authHTTP) resetPassword(c *gin.Context) {
 		return
 	}
 	if !security.ValidPassword(r.Password) {
-		c.JSON(400, errorResponse{"password must contain at least 12 characters and at most 1024 bytes"})
+		c.JSON(400, errorResponse{"password must contain at least 8 characters and at most 1024 bytes"})
 		return
 	}
 	if err := x.auth.ResetPassword(c.Request.Context(), r.Token, r.Password); err != nil {

@@ -29,6 +29,7 @@ import {
 import { DashboardLayout } from './features/dashboard/Layout';
 import { BuyerProvider } from './features/buyer/Buyer';
 import { FavoritesPage, CartPage, OrdersPage, OrderPage } from './features/buyer/Pages';
+import { GuestSection } from './features/guest/GuestSection';
 
 function Titles() {
   const { pathname } = useLocation();
@@ -104,12 +105,33 @@ const router = createBrowserRouter(
         <Route path="account" element={protect(<AccountPage />)} />
         <Route path="favorites" element={protect(<FavoritesPage />)} />
         <Route path="cart" element={protect(<CartPage />)} />
-        <Route path="orders" element={protect(<OrdersPage />)} />
+        <Route
+          path="orders"
+          element={
+            <RequireAuth guest={{ path: '/orders', page: <GuestSection section="orders" /> }}>
+              <OrdersPage />
+            </RequireAuth>
+          }
+        />
         <Route path="orders/:orderId" element={protect(<OrderPage />)} />
-        <Route path="wishlists" element={protect(<WishlistsPage />)} />
+        <Route
+          path="wishlists"
+          element={
+            <RequireAuth guest={{ path: '/wishlists', page: <GuestSection section="wishlists" /> }}>
+              <WishlistsPage />
+            </RequireAuth>
+          }
+        />
         <Route path="wishlists/new" element={protect(<NewWishlistPage />)} />
         <Route path="wishlists/:id" element={protect(<WishlistPage />)} />
-        <Route path="studio" element={protect(<DashboardLayout />)}>
+        <Route
+          path="studio"
+          element={
+            <RequireAuth guest={{ path: '/studio', page: <GuestSection section="studio" /> }}>
+              <DashboardLayout />
+            </RequireAuth>
+          }
+        >
           <Route index element={<StudioPage />} />
           <Route path="invitations" element={<StudioPage invitationsOnly />} />
           <Route path="brands/new" element={<NewBrandPage />} />

@@ -62,6 +62,9 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
 	if err != nil {
 		return nil, err
 	}
+	if p.index != nil {
+		return p.browseIndexed(ctx, q)
+	}
 	tx, err := p.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
 		return nil, err
@@ -79,12 +82,22 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
 	if err = tx.SelectContext(ctx, &rows, statement, args...); err != nil {
 		return nil, err
 	}
+	if err = loadCards(ctx, tx, page, rows); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return page, nil
+}
+
+func loadCards(ctx context.Context, tx *sqlx.Tx, page *usecase.ProductPage, rows []productCardRow) error {
 	ids := make([]int64, 0, len(rows))
 	positions := make(map[int64]int, len(rows))
 	for _, row := range rows {
 		product, err := row.product()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		positions[product.ID()] = len(page.Items)
 		ids = append(ids, product.ID())
@@ -92,14 +105,7 @@ func (p *Products) BrowsePublic(ctx context.Context, query usecase.ProductQuery)
 			Product: *product, BrandName: row.BrandName, BrandSlug: row.BrandSlug, Colors: []usecase.ProductCardColor{},
 		})
 	}
-	if err = loadCardChildren(ctx, tx, page.Items, ids, positions); err != nil {
-		return nil, err
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, err
-	}
-	return page, nil
+	return loadCardChildren(ctx, tx, page.Items, ids, positions)
 }
 
 type productCardRow struct {

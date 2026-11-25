@@ -37,9 +37,17 @@ test('owner edits and previews a brand page, publishes a snapshot, and handles r
     await expect(page.getByRole('button', { name: 'Добавить контакты' })).toBeVisible();
     await page.getByRole('button', { name: 'Добавить контакты' }).click();
     await page.getByRole('button', { name: /Удалить блок .*Контакты/ }).click();
-    await page.getByRole('textbox', { name: 'Фон', exact: true }).fill('#151515cf');
-    await page.getByRole('textbox', { name: 'Текст', exact: true }).fill('#ffffff');
+    const backgroundPicker = page.getByLabel('Выбрать цвет «Фон»', { exact: true });
     const preview = page.frameLocator('iframe[title="Предпросмотр витрины"]');
+    await backgroundPicker.fill('#8a604c');
+    await expect(page.getByRole('textbox', { name: 'Фон', exact: true })).toHaveValue('#8a604c');
+    await expect(preview.locator('[data-brand-block="hero"]')).toHaveCSS(
+      'background-color',
+      'rgb(138, 96, 76)',
+    );
+    await page.getByRole('textbox', { name: 'Фон', exact: true }).fill('#151515cf');
+    await expect(backgroundPicker).toHaveValue('#151515');
+    await page.getByRole('textbox', { name: 'Текст', exact: true }).fill('#ffffff');
     await expect(preview.locator('[data-brand-block="hero"]')).toHaveClass(/brand-hero--split/);
     await expect(preview.locator('[data-brand-block="story"][data-layout="split"]')).toBeVisible();
     await expect(preview.locator('[data-brand-block]').nth(1)).toHaveAttribute(
@@ -63,7 +71,7 @@ test('owner edits and previews a brand page, publishes a snapshot, and handles r
     expect((await getPublic()).page.appearance.background_color).toBe('#151515cf');
 
     const loaded = await (await api.get(endpoint + '/manage', { headers: owner.headers })).json();
-    await page.getByRole('textbox', { name: 'Фон', exact: true }).fill('#d9d9d9');
+    await backgroundPicker.fill('#d9d9d9');
     const raced = await api.put(endpoint + '/draft', {
       headers: owner.headers,
       data: {

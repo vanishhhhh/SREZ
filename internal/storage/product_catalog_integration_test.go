@@ -13,16 +13,31 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
+	"srez/internal/catalogsearch"
 	"srez/internal/storage"
 	"srez/internal/usecase"
 )
 
 func TestPostgresCatalogFiltersAndCards(t *testing.T) {
+	checkCatalogFiltersAndCards(t, nil)
+	if endpoint := os.Getenv("TEST_ELASTICSEARCH_URL"); endpoint != "" {
+		t.Run("Elasticsearch", func(t *testing.T) {
+			index, err := catalogsearch.New(endpoint, "", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkCatalogFiltersAndCards(t, index)
+		})
+	}
+}
+
+func checkCatalogFiltersAndCards(t *testing.T, index *catalogsearch.Index) {
+	t.Helper()
 	db := testDB(t)
 	migrate(t, db)
 	seed(t, db)
 	ctx := context.Background()
-	repo := storage.NewProducts(db)
+	repo := storage.NewProducts(db).WithCatalogIndex(index)
 	initial, err := repo.BrowsePublic(ctx, usecase.ProductQuery{})
 	if err != nil || initial.Total != 2 || len(initial.Items) != 2 {
 		t.Fatalf("initial page: %#v, %v", initial, err)
@@ -89,6 +104,11 @@ func TestPostgresCatalogFiltersAndCards(t *testing.T) {
 	page, err := repo.BrowsePublic(ctx, usecase.ProductQuery{Sort: "price_desc", Page: 2, Limit: 1})
 	if err != nil || len(page.Items) != 1 || page.Items[0].Product.ID() != second.Product.ID() {
 		t.Fatalf("unstable price tie ordering: %#v %v", page, err)
+	}
+	exec(t, db, `UPDATE product_variants SET stock=0 WHERE id=$1`, first.Colors[0].Variants[0].ID)
+	page, err = repo.BrowsePublic(ctx, usecase.ProductQuery{Color: "чёрный", Size: "M"})
+	if err != nil || page.Total != 1 || len(page.Items) != 1 || page.Items[0].Product.ID() != second.Product.ID() {
+		t.Fatalf("changed stock: %#v %v", page, err)
 	}
 	for _, status := range []string{"draft", "hidden"} {
 		exec(t, db, `UPDATE products SET status=$2 WHERE id=$1`, first.Product.ID(), status)

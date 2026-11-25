@@ -8,13 +8,21 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"srez/internal/catalogsearch"
 	"srez/internal/entities"
 	"srez/internal/usecase"
 )
 
-type Products struct{ db *sqlx.DB }
+type Products struct {
+	db    *sqlx.DB
+	index *catalogsearch.Index
+}
 
 func NewProducts(db *sqlx.DB) *Products { return &Products{db: db} }
+
+func (p *Products) WithCatalogIndex(index *catalogsearch.Index) *Products {
+	return &Products{db: p.db, index: index}
+}
 
 var _ usecase.ProductRepository = (*Products)(nil)
 

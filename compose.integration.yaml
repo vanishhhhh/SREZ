@@ -3,6 +3,7 @@ services:
   app:
     build: .
     environment:
+      SREZ_ELASTICSEARCH_URL: http://elasticsearch:9200
       SREZ_SMTP_HOST: mailpit
       SREZ_SMTP_PORT: '1025'
       SREZ_MAIL_FROM: "${SREZ_MAIL_FROM:-SREZ <no-reply@srez.local>}"
@@ -29,12 +30,30 @@ services:
     ports:
       - "127.0.0.1:${SREZ_API_PORT:-8081}:8080"
     depends_on:
+      elasticsearch:
+        condition: service_healthy
       mailpit:
         condition: service_healthy
       seaweedfs:
         condition: service_healthy
       db:
         condition: service_healthy
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.26@sha256:d71769f4e1145dca3794a04ddcd67e12f1299048b3232025e55feda799904a5d
+    mem_limit: 1g
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      xpack.ml.enabled: 'false'
+      ES_JAVA_OPTS: '-Xms384m -Xmx384m'
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=3s'"]
+      interval: 5s
+      timeout: 4s
+      retries: 30
 
   seaweedfs:
     image: chrislusf/seaweedfs:4.54@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
@@ -104,6 +123,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  elasticsearch_data:
   mailpit_data:
   postgres_data:
   seaweedfs_data:

@@ -1,6 +1,6 @@
 import { createContext, Fragment, useContext, useEffect, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { matchPath, Navigate, useLocation } from 'react-router-dom';
 import { session } from '../lib/client';
 import { ServerUnavailable } from '../components/ServerUnavailable';
 
@@ -17,7 +17,13 @@ export function useAuth() {
   if (!value) throw new Error('Auth provider missing');
   return value;
 }
-export function RequireAuth({ children }: { children: ReactNode }) {
+export function RequireAuth({
+  children,
+  guest,
+}: {
+  children: ReactNode;
+  guest?: { path: string; page: ReactNode };
+}) {
   const auth = useAuth();
   const location = useLocation();
   if (auth.status === 'checking')
@@ -35,7 +41,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         onRetry={() => void session.restore()}
       />
     );
-  if (auth.status !== 'authenticated')
+  if (auth.status !== 'authenticated') {
+    if (guest && matchPath(guest.path, location.pathname)) return guest.page;
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  }
   return <Fragment key={auth.user?.id}>{children}</Fragment>;
 }

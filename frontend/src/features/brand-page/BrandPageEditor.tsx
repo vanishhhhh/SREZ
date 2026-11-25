@@ -20,6 +20,7 @@ import {
   brandPalette,
   editorialBlocks,
   imageLimits,
+  isBrandColor,
   pageFingerprint,
   readBrandPageConfig,
   validBrandAppearance,
@@ -37,10 +38,21 @@ const layouts: Record<string, string> = {
   inline: 'Строка контактов',
 } as const;
 const paletteFields = [
-  ['background_color', 'Фон'],
-  ['text_color', 'Текст'],
-  ['accent_color', 'Акцент'],
+  ['background_color', 'Фон', 'background'],
+  ['text_color', 'Текст', 'text'],
+  ['accent_color', 'Акцент', 'accent'],
 ] as const;
+
+function pickerColor(color: string, fallback: readonly number[]) {
+  if (!color || !isBrandColor(color))
+    return '#' + fallback.map((channel) => channel.toString(16).padStart(2, '0')).join('');
+  const digits = color.slice(1).toLowerCase();
+  const rgb =
+    digits.length <= 4
+      ? [...digits.slice(0, 3)].map((digit) => digit.repeat(2)).join('')
+      : digits.slice(0, 6);
+  return '#' + rgb;
+}
 
 export function BrandPageEditor({ brand }: { brand: Brand }) {
   const feed = useLoad((signal) => api.brandPageEditor(brand.id, signal), [brand.id]);
@@ -51,6 +63,7 @@ export function BrandPageEditor({ brand }: { brand: Brand }) {
 
 function BrandPageForm({ brand, initial }: { brand: Brand; initial: BrandPageEditorState }) {
   const previewID = useId();
+  const paletteID = useId();
   const [highlight, setHighlight] = useState<string>();
   const [jump, setJump] = useState<{ id: string }>();
   const previewTrigger = useRef<HTMLButtonElement | null>(null);
@@ -103,6 +116,7 @@ function BrandPageForm({ brand, initial }: { brand: Brand; initial: BrandPageEdi
   }
   const confirmDiscard = useConfirmDiscard();
   const paletteValid = validBrandAppearance(config.appearance);
+  const palette = brandPalette(config.appearance);
   const validConfig = !!readBrandPageConfig(config);
   const library = [...new Set([...localMedia, ...saved.media_ids])];
   const isPublished =
@@ -110,6 +124,12 @@ function BrandPageForm({ brand, initial }: { brand: Brand; initial: BrandPageEdi
 
   function updateBlocks(blocks: BrandPageBlock[]) {
     setConfig((current) => ({ ...current, blocks }));
+  }
+  function changeColor(field: (typeof paletteFields)[number][0], value: string) {
+    setConfig((current) => ({
+      ...current,
+      appearance: { ...current.appearance, [field]: value },
+    }));
   }
   function changeBlock(block: BrandPageBlock, minVersion?: 2 | 3) {
     setConfig((current) => ({
@@ -458,22 +478,31 @@ function BrandPageForm({ brand, initial }: { brand: Brand; initial: BrandPageEdi
             )}
           <div className="brand-builder__palette">
             <h3>Палитра</h3>
-            {paletteFields.map(([field, label]) => (
-              <Field key={field} label={label} hint="HEX или пустое поле">
-                <input
-                  value={config.appearance[field]}
-                  maxLength={9}
-                  onChange={(e) =>
-                    setConfig((current) => ({
-                      ...current,
-                      appearance: { ...current.appearance, [field]: e.target.value },
-                    }))
-                  }
-                />
-              </Field>
+            <p className="field__hint">Нажмите на образец, чтобы выбрать цвет.</p>
+            {paletteFields.map(([field, label, channel]) => (
+              <div className="field" key={field}>
+                <label className="field__label" htmlFor={paletteID + field}>
+                  {label}
+                </label>
+                <div className="brand-builder__color">
+                  <input
+                    type="color"
+                    aria-label={`Выбрать цвет «${label}»`}
+                    value={pickerColor(config.appearance[field], palette[channel])}
+                    onChange={(event) => changeColor(field, event.currentTarget.value)}
+                  />
+                  <input
+                    id={paletteID + field}
+                    placeholder="По умолчанию"
+                    value={config.appearance[field]}
+                    maxLength={9}
+                    onChange={(event) => changeColor(field, event.currentTarget.value)}
+                  />
+                </div>
+              </div>
             ))}
             {!paletteValid && <Notice error>Введите HEX-цвет, например #f6f5f1.</Notice>}
-            {paletteValid && brandPalette(config.appearance).adjusted && (
+            {paletteValid && palette.adjusted && (
               <Notice>Для читаемости используется контрастный цвет текста или акцента.</Notice>
             )}
           </div>

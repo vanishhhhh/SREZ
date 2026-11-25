@@ -37,7 +37,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
       const identifier = form.identifier;
       if (creating) {
         if (!passwordValid(form.password))
-          throw new Error('Пароль: минимум 12 символов и максимум 1024 байта.');
+          throw new Error('Пароль: минимум 8 символов и максимум 1024 байта.');
         if (!form.display_name.trim()) throw new Error('Укажите имя.');
         const created = await session.register({
           email: form.email.trim(),
@@ -157,7 +157,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                 />
               )}
               <PasswordField
-                hint={creating ? 'Не менее 12 символов. Пробелы в пароле сохраняются.' : undefined}
+                hint={creating ? 'Не менее 8 символов. Пробелы в пароле сохраняются.' : undefined}
                 autoComplete={creating ? 'new-password' : 'current-password'}
                 required
                 value={form.password}

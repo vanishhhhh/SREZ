@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 
+	"srez/internal/catalogsearch"
 	"srez/internal/config"
 	"srez/internal/handler"
 	"srez/internal/mailer"
@@ -58,7 +59,15 @@ func main() {
 	}
 	brandsRepo := storage.NewBrands(db)
 	brands := usecase.NewBrands(brandsRepo)
-	products := usecase.NewProducts(storage.NewProducts(db), brandsRepo)
+	productRepo := storage.NewProducts(db)
+	if endpoint := os.Getenv("SREZ_ELASTICSEARCH_URL"); endpoint != "" {
+		index, err := catalogsearch.New(endpoint, os.Getenv("SREZ_ELASTICSEARCH_USERNAME"), os.Getenv("SREZ_ELASTICSEARCH_PASSWORD"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		productRepo = productRepo.WithCatalogIndex(index)
+	}
+	products := usecase.NewProducts(productRepo, brandsRepo)
 	users := usecase.NewUsers(storage.NewUsers(db))
 	h := handler.New(users, brands, products)
 	management := usecase.NewManagement(storage.NewManagement(db))
