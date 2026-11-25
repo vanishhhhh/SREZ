@@ -6,6 +6,7 @@ import { BrandSkeletons, Missing } from './shared';
 import { BrandPageRenderer, useBrandPageProducts } from '../brand-page/BrandPageRenderer';
 import { defaultBrandPage } from '../../lib/brand-page';
 import type { Brand } from '../../lib/types';
+import { useBrandHeader } from './BrandHeader';
 
 export function BrandsPage() {
   const brands = useLoad((signal) => api.brands(signal), []);
@@ -55,6 +56,7 @@ export function BrandPage() {
   return <BrandContent key={brand.data.id} brand={brand.data} />;
 }
 function BrandContent({ brand }: { brand: Brand }) {
+  useBrandHeader(brand);
   const [params, setParams] = useSearchParams();
   const products = useBrandPageProducts(brand.id, params.get('page') || '1');
   return (

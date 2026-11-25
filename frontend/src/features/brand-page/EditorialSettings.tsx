@@ -202,7 +202,7 @@ export function EditorialSettings({
       )}
       <CompositionControls block={block} change={(next) => change(next, 3)} />
       {brandStory && max > 0 && (
-        <p className="field__hint">Без выбранного фото используется логотип бренда.</p>
+        <p className="field__hint">Без выбранного фото отображается только текст истории.</p>
       )}
       {images.length > max && (
         <p className="field__hint">Уберите лишние фото для этой композиции.</p>
@@ -324,7 +324,7 @@ export function EditorialSettings({
                       variant="ghost"
                       onClick={() => patch({ images: images.filter((_, at) => at !== index) })}
                     >
-                      {brandStory ? 'Использовать логотип' : `Убрать фото ${index + 1}`}
+                      {`Убрать фото ${index + 1}`}
                     </Button>
                   </div>
                 </>

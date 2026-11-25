@@ -86,6 +86,30 @@ func seed(t *testing.T, db *sqlx.DB) {
 	}
 }
 
+func assertCurrentMigrationJournal(t *testing.T, db *sqlx.DB) {
+	t.Helper()
+	entries, err := os.ReadDir("../../migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			want = append(want, entry.Name())
+		}
+	}
+	if len(want) == 0 {
+		t.Fatal("no migration SQL files found")
+	}
+	var got []string
+	if err := db.Select(&got, `SELECT version FROM schema_migrations ORDER BY version`); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("migration journal = %v, want %v", got, want)
+	}
+}
+
 func TestPostgresMigrations(t *testing.T) {
 	for _, existing := range []bool{false, true} {
 		t.Run(fmt.Sprintf("existing_users_%v", existing), func(t *testing.T) {
@@ -113,9 +137,7 @@ func TestPostgresMigrations(t *testing.T) {
 				}
 			}
 			migrate(t, db)
-			if count(t, db, "schema_migrations") != 17 {
-				t.Fatal("wrong migration count")
-			}
+			assertCurrentMigrationJournal(t, db)
 			if existing && count(t, db, "users") != 1 {
 				t.Fatal("existing user lost")
 			}
@@ -166,8 +188,9 @@ func TestPostgresBrandPageUpgradeFromMain(t *testing.T) {
 	}
 	migrate(t, db)
 	migrate(t, db)
+	assertCurrentMigrationJournal(t, db)
 	after, err := storage.NewBrands(db).ListActive(context.Background())
-	if err != nil || len(after) != len(before) || count(t, db, "schema_migrations") != 17 ||
+	if err != nil || len(after) != len(before) ||
 		count(t, db, "brand_pages") != 0 || count(t, db, "products") != 2 {
 		t.Fatal(len(after), err)
 	}

@@ -4,6 +4,8 @@ import { useAuth } from '../auth/Auth';
 import { Avatar, Icon } from './ui';
 import { PageBoundary } from './PageBoundary';
 import { useBuyer } from '../features/buyer/Buyer';
+import { HeaderWordmark } from './HeaderWordmark';
+import type { BrandHeader } from '../features/storefront/BrandHeader';
 
 export function Layout() {
   const auth = useAuth();
@@ -14,6 +16,7 @@ export function Layout() {
   const location = useLocation();
   const storefront = useMatches().some((match) => match.handle === 'storefront');
   const [menu, setMenu] = useState(false);
+  const [brandHeader, setBrandHeader] = useState<BrandHeader | null>(null);
   const [year] = useState(() => new Date().getFullYear());
   const menuButton = useRef<HTMLButtonElement>(null);
   const navigation = useRef<HTMLElement>(null);
@@ -44,9 +47,9 @@ export function Layout() {
         К содержимому
       </a>
       <header className="header">
-        <Link to="/" className="wordmark" aria-label="SREZ — главная">
-          SREZ<span>®</span>
-        </Link>
+        <HeaderWordmark
+          brand={brandHeader?.pathname === location.pathname ? brandHeader.brand : undefined}
+        />
         <nav
           ref={navigation}
           id="main-navigation"
@@ -105,7 +108,7 @@ export function Layout() {
       </header>
       <main id="main">
         <PageBoundary routeKey={location.pathname + location.search}>
-          <Outlet />
+          <Outlet context={{ setBrandHeader }} />
         </PageBoundary>
       </main>
       <footer className={storefront ? 'footer footer--storefront' : 'footer'}>

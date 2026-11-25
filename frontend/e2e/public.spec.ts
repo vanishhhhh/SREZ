@@ -278,10 +278,10 @@ test.describe('public storefront against real Go and isolated PostgreSQL', () =>
   }) => {
     await page.goto('/brands/' + brand.slug);
     await expect(page.getByRole('heading', { name: brand.name, exact: true })).toBeVisible();
-    await expect(page.locator('[data-brand-block="story"] .brand-story-logo')).toHaveAttribute(
-      'data-media-src',
-      /\/media\/assets\/\d+\/content/,
-    );
+    await expect(
+      page.locator('.header').getByRole('img', { name: brand.name, exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('[data-brand-block="story"] .brand-story-logo')).toHaveCount(0);
     await expect(page.locator('.brand-hero__banner')).toHaveAttribute(
       'data-media-src',
       /\/media\/assets\/\d+\/content/,
