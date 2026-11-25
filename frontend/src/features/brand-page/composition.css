@@ -68,15 +68,6 @@
   white-space: pre-wrap;
 }
 
-.brand-story-logo {
-  width: min(92px, 100%);
-  aspect-ratio: 1;
-}
-
-.brand-story-logo img {
-  object-fit: contain;
-}
-
 .brand-story-section[data-layout='stacked'] .composition-pair__visual {
   width: min(100%, 720px);
 }
@@ -93,10 +84,6 @@
 .brand-story-section[data-layout='centered'] .composition-pair__visual {
   justify-self: center;
   width: min(100%, 480px);
-}
-
-.brand-story-section[data-layout='centered'] .brand-story-logo {
-  margin-inline: auto;
 }
 
 .composition-pair__copy {

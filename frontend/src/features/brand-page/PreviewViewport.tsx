@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 const frameHTML =
-  '<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main id="preview-root"></main></body></html>';
+  '<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><div id="preview-root"></div></body></html>';
 
 export function PreviewViewport({
   device,

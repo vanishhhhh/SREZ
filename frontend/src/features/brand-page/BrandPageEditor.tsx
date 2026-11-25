@@ -1,4 +1,5 @@
 import { PreviewViewport } from './PreviewViewport';
+import { HeaderWordmark } from '../../components/HeaderWordmark';
 import { CompositionControls } from './CompositionSettings';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
@@ -524,14 +525,19 @@ function BrandPageForm({ brand, initial }: { brand: Brand; initial: BrandPageEdi
             </div>
           </div>
           <PreviewViewport device={device} focus={jump}>
-            <BrandPageRenderer
-              brand={brand}
-              config={config}
-              products={products}
-              onPage={setPage}
-              preview={device}
-              selectedID={highlight}
-            />
+            <header className="header" aria-label="Шапка витрины">
+              <HeaderWordmark brand={brand} authenticated />
+            </header>
+            <main>
+              <BrandPageRenderer
+                brand={brand}
+                config={config}
+                products={products}
+                onPage={setPage}
+                preview={device}
+                selectedID={highlight}
+              />
+            </main>
           </PreviewViewport>
         </section>
       </div>

@@ -1,7 +1,7 @@
 import { HeroMedia } from './ResponsiveMedia';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { Icon, Media } from '../../components/ui';
+import { Icon } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useLoad } from '../../lib/hooks';
 import { mediaURL } from '../../lib/media';
@@ -154,19 +154,8 @@ function BrandStory({
   attributes: CompositionAttributes;
 }) {
   const photo = block.content.images?.[0];
-  const logo = mediaURL(brand.logo_url);
   const visual =
-    block.layout !== 'text' &&
-    (photo ? (
-      <EditorialPhoto image={photo} preview={preview} />
-    ) : logo ? (
-      <Media
-        className="brand-story-logo"
-        src={logo}
-        alt={'Логотип ' + brand.name}
-        authenticated={preview}
-      />
-    ) : null);
+    block.layout !== 'text' && photo ? <EditorialPhoto image={photo} preview={preview} /> : null;
   const description = brand.description.trim();
   if (!description && !preview) return null;
   const reversed = block.layout.endsWith('-reversed');
@@ -181,9 +170,7 @@ function BrandStory({
               <h2>О бренде</h2>
               <p>{description || 'Добавьте описание в настройках бренда.'}</p>
               {preview && description && !visual && block.layout !== 'text' && (
-                <p className="brand-story-section__hint">
-                  Добавьте логотип или выберите фотографию для истории.
-                </p>
+                <p className="brand-story-section__hint">Выберите фотографию для истории.</p>
               )}
             </>
           }
