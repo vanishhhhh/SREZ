@@ -21,7 +21,7 @@ func testTokens(t *testing.T) *Tokens {
 func TestPasswords(t *testing.T) {
 	p := NewPasswords(1)
 	ctx := context.Background()
-	password := "a sufficiently long password"
+	password := "абвгдежз"
 	a, e := p.Hash(ctx, password)
 	if e != nil {
 		t.Fatal(e)
@@ -40,7 +40,7 @@ func TestPasswords(t *testing.T) {
 			t.Fatal("wrong password accepted")
 		}
 	}
-	for _, s := range []string{"short", strings.Repeat("a", 1025)} {
+	for _, s := range []string{"абвгдеж", strings.Repeat("a", 1025)} {
 		if _, e := p.Hash(ctx, s); e == nil {
 			t.Fatal("invalid password accepted")
 		}
