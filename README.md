@@ -8,18 +8,19 @@
 
 - Регистрация, подтверждение email, вход по email/username, профиль и managed avatar.
 - Восстановление пароля через одноразовую ссылку; отзыв всех прежних сессий и access JWT.
-- Каталог с фильтрами category/brand/size/color/price, сортировкой и пагинацией.
+- Каталог с фильтрами по категории, бренду, цене, размеру и цвету. В интеграционном окружении фильтрацию, сортировку и пагинацию выполняет Elasticsearch.
 - Товар: галерея, конкретные цвета/размеры/остатки, материалы, бренд.
 - Избранное, корзина выбранных вариантов, серверные цены и суммы.
 - Неоплаченные резервы, история, отмена и автоматическое освобождение остатков.
 - Несколько вишлистов: порядок, предпочтительный вариант, публичные ссылки, ротация/отзыв.
 - Студия бренда: owner/editor, приглашения, публикация, PVM и загрузка изображений.
+- Редактор страницы бренда с предпросмотром, черновиком и публикацией. Цвет фона, текста и акцента можно выбрать из палитры или ввести в HEX.
 - Приватный SeaweedFS; браузер работает с файлами через Go backend.
 - Mailpit для настоящего локального SMTP; письма не уходят в реальный почтовый ящик.
 
 ## Стек и архитектура
 
-Go 1.27.2+, Gin, sqlx, PostgreSQL 16; React 19, TypeScript, Vite, React Router. JWT HS256 до 15 минут, Argon2id, opaque refresh sessions с абсолютным сроком 7 дней. Docker Compose, SeaweedFS, Mailpit. Проверки frontend: TypeScript, **Oxlint** (текущий lint проекта), Vitest и Playwright. Версии зависимостей закреплены go.mod/go.sum и package-lock.json.
+Go 1.27.2+, Gin, sqlx, PostgreSQL 16, Elasticsearch 8.19, React 19, TypeScript, Vite и React Router. JWT HS256 действует до 15 минут, refresh-сессия — до 7 дней. Для паролей используется Argon2id. Окружение собирается через Docker Compose и включает SeaweedFS и Mailpit. Проверки frontend выполняются TypeScript, Oxlint, Vitest и Playwright.
 
 HTTP Handler валидирует DTO и вызывает usecase. Usecase выполняет сценарий и проверяет доменные правила. Storage содержит SQL и транзакции; entities не сериализуются напрямую. В main собираются зависимости. Auth остаётся единым; verification и recovery используют общий MailSender/SMTP, отдельные токены и SQL-таблицы.
 
@@ -31,10 +32,11 @@ internal/entities/       доменные сущности/инварианты
 internal/handler/        Gin, DTO, маршруты
 internal/usecase/        Auth, каталог, PVM, shopping, media, wishlists
 internal/storage/        PostgreSQL, SQL и транзакции
+internal/catalogsearch/  индексация и поиск в Elasticsearch
 internal/security/       Argon2id, JWT/CSRF, share capabilities
 internal/mailer/         общий SMTP, HTML/text письма
 internal/objectstorage/  приватный S3-compatible SeaweedFS
-migrations/              append-only SQL 001–015 и migration runner
+migrations/              append-only SQL 001–018 и migration runner
 frontend/src/            React UI, features, transport и auth state
 frontend/e2e/            настоящие API/Mailpit/browser сценарии
 frontend/docs/           план и отчёты предыдущих этапов
@@ -65,7 +67,7 @@ node .\frontend\scripts\prepare-local.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-integration.ps1
 ```
 
-Скрипт сохраняет существующие значения `.env` и генерирует только отсутствующие ключи. Не копируйте `.env.example` поверх своей конфигурации. Docker собирает Go и React, запускает PostgreSQL/SeaweedFS/Mailpit, затем API применяет недостающие миграции. Готовый frontend обслуживает nginx, отдельный терминал Vite для обычного запуска не нужен.
+Скрипт сохраняет существующие значения `.env` и генерирует только отсутствующие ключи. Docker собирает Go и React, запускает PostgreSQL, Elasticsearch, SeaweedFS и Mailpit, затем API применяет миграции. Первый запрос каталога создаёт индекс из PostgreSQL. Elasticsearch доступен внутри сети Compose и имеет лимит памяти 1 ГБ. Готовый frontend обслуживает nginx.
 
 | Сервис       | Адрес на этом ПК             | В Docker       |
 | ------------ | ---------------------------- | -------------- |
@@ -113,6 +115,22 @@ docker compose -p srez-integration -f compose.integration.yaml start
 JWT, CSRF, wishlist и S3 ключи нельзя регенерировать при каждом запуске: это нарушит существующие сессии/доступ к данным. `.env`, `.secrets`, дампы, volumes и Mailpit mailbox должны оставаться приватными. В браузер не передаются server secrets; VITE_* для них не используется.
 
 `compose.integration.yaml` — рекомендуемая полная локальная копия. Базовый `compose.yaml` остаётся backend-only конфигурацией на 8080/5432/8333; не применяйте его к старому проекту для обновления. `compose.frontend.yaml` — дополнительная локальная конфигурация прежнего workflow. Для текущей копии достаточно одного integration Compose.
+
+## Поиск по каталогу
+
+После локального запуска через `compose.integration.yaml` можно проверить фильтрацию запросом. Цена в API указывается в копейках.
+
+```powershell
+Invoke-RestMethod 'http://localhost:5174/api/products?category=hoodie&size=M&max_price=800000&sort=price_asc'
+```
+
+Elasticsearch подбирает товары по критериям, считает результаты и определяет их порядок. Фильтры цвета и размера должны совпасть у одного варианта с положительным остатком. PostgreSQL хранит товары и остатки и возвращает данные карточек. После изменений, влияющих на поиск, следующий запрос каталога обновляет индекс.
+
+Для Go API, запущенного отдельно от Compose, адрес поиска задаётся через `SREZ_ELASTICSEARCH_URL`. При необходимости также задаются `SREZ_ELASTICSEARCH_USERNAME` и `SREZ_ELASTICSEARCH_PASSWORD`. С пустым адресом каталог использует PostgreSQL. Если настроенный Elasticsearch недоступен, список товаров отвечает HTTP 503. [Контракт каталога](docs/catalog-api.md) · [Архитектура](docs/architecture.md).
+
+## Палитра страницы бренда
+
+В студии бренда откройте «Оформление страницы» → «Палитра». Нажмите на цветной образец рядом с фоном, текстом или акцентом, чтобы открыть системную палитру. Предпросмотр обновляется сразу. Поле HEX поддерживает точный ввод и цвета с прозрачностью. Для публикации сначала сохраните черновик, затем нажмите «Опубликовать оформление».
 
 ## Разработка Go и React отдельно
 

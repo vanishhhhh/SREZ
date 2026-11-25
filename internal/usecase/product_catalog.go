@@ -12,7 +12,10 @@ import (
 	"srez/internal/entities"
 )
 
-var ErrInvalidProductQuery = errors.New("invalid product query")
+var (
+	ErrInvalidProductQuery      = errors.New("invalid product query")
+	ErrCatalogSearchUnavailable = errors.New("catalog search unavailable")
+)
 
 const (
 	DefaultProductLimit = 20
