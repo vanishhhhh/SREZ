@@ -1728,6 +1728,12 @@ select:disabled {
     border-top: 1px solid var(--line);
   }
 }
+@container (max-width: 120px) {
+  .editor-image__actions button:nth-child(n + 3) {
+    grid-column: 1 / -1;
+    border-right: 0;
+  }
+}
 .image-cover-button {
   border: 0;
   border-top: 1px solid var(--line);

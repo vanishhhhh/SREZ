@@ -162,8 +162,22 @@ async function logoFits(page: Page, name: string) {
 for (const width of [1440, 390]) {
   test(`brand logos, fallbacks and button layouts at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 960 });
+    await page.addInitScript(() => {
+      document.addEventListener(
+        'error',
+        (event) => {
+          if (event.target instanceof HTMLImageElement && event.target.closest('.brand-wordmark'))
+            document.documentElement.dataset.brandLogoFailed = 'true';
+        },
+        true,
+      );
+    });
     await fixtures(page);
     for (const current of brands) {
+      const missingLogo =
+        current.id === 6
+          ? page.waitForResponse((response) => response.url().endsWith('/media/assets/6/content'))
+          : undefined;
       await page.goto('/brands/' + current.slug);
       const link = page.locator('.header').getByRole('link', { name: `${current.name} — главная` });
       await expect(link).toHaveAttribute('href', '/');
@@ -175,6 +189,9 @@ for (const width of [1440, 390]) {
             fullPage: true,
           });
       } else {
+        if (current.id === 4)
+          await expect(page.locator('html')).toHaveAttribute('data-brand-logo-failed', 'true');
+        if (missingLogo) expect((await missingLogo).status()).toBe(404);
         await expect(link).toHaveText(current.name);
         await expect(link.locator('img')).toHaveCount(0);
       }
@@ -210,6 +227,71 @@ for (const width of [1440, 390]) {
       .screenshot({ path: testInfo.outputPath(`seller-controls-${width}.png`) });
   });
 }
+
+test('photo actions fit Russian labels and keep replacement available at 320px', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await fixtures(page, true);
+  await page.goto('/studio/brands/1/products/42');
+  const replace = page.getByRole('button', { name: 'Заменить фото 2', exact: true });
+  await expect(replace).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  for (const button of await page.locator('.editor-image__actions button').all()) {
+    const fits = await button.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const label = range.getBoundingClientRect();
+      const bounds = element.getBoundingClientRect();
+      return label.left >= bounds.left && label.right <= bounds.right;
+    });
+    expect(fits).toBe(true);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('#colors').screenshot({ path: testInfo.outputPath('photo-actions-320.png') });
+  await replace.click();
+  await expect(
+    page.getByLabel('Заменить фото 2', { exact: true }).and(page.locator('input[type=file]')),
+  ).toBeVisible();
+});
+
+test('leaving a storefront with a pending logo lets the next brand load without stale imagery', async ({
+  page,
+}) => {
+  await fixtures(page);
+  await page.goto('/brands');
+  await page.locator('a.brand-directory__row[href="/brands/brand-1"]').click();
+  await logoFits(page, brands[0].name);
+  await page.getByRole('link', { name: 'Все бренды', exact: true }).click();
+  await page.locator('a.brand-directory__row[href="/brands/brand-2"]').click();
+  await logoFits(page, brands[1].name);
+
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started!: () => void;
+  const pendingLogo = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  await page.route('**/media/assets/1/content', async (route) => {
+    started();
+    await waiting;
+    await route.fallback();
+  });
+  try {
+    await page.evaluate(() => history.go(-2));
+    await pendingLogo;
+    await expect(page.locator('.header .brand-wordmark')).toHaveText(brands[0].name);
+    await page.evaluate(() => history.go(2));
+    await logoFits(page, brands[1].name);
+  } finally {
+    release();
+  }
+  await expect(page.locator('.header').getByRole('img', { name: brands[0].name })).toHaveCount(0);
+  await page.reload();
+  await logoFits(page, brands[1].name);
+});
 
 test('client navigation clears previous branding before a different brand loads', async ({
   page,
