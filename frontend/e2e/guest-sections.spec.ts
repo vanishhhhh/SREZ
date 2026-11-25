@@ -97,9 +97,12 @@ async function mockAPI(context: BrowserContext, signedIn = false) {
 }
 
 async function login(page: Page) {
-  await page.getByLabel('Email или имя пользователя', { exact: true }).fill('member');
-  await page.getByLabel('Пароль', { exact: true }).fill('test password 123');
-  await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  // The verification prompt has the same identifier label during the route transition.
+  const form = page.getByRole('form', { name: 'Вход', exact: true });
+  await expect(form).toBeVisible();
+  await form.getByLabel('Email или имя пользователя', { exact: true }).fill('member');
+  await form.getByLabel('Пароль', { exact: true }).fill('test password 123');
+  await form.getByRole('button', { name: 'Войти', exact: true }).click();
 }
 
 for (const section of sections) {
