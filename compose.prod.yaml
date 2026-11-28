@@ -1,0 +1,174 @@
+name: srez-prod
+
+x-runtime: &runtime
+  restart: unless-stopped
+  logging:
+    driver: local
+    options:
+      max-size: 10m
+      max-file: '3'
+
+services:
+  frontend:
+    <<: *runtime
+    build: ./frontend
+    cpus: ${SREZ_FRONTEND_CPUS:?set frontend CPU budget}
+    mem_limit: ${SREZ_FRONTEND_MEMORY:?set frontend memory budget}
+    ports:
+      - "127.0.0.1:${SREZ_FRONTEND_PORT:-5174}:8080"
+    volumes:
+      - type: bind
+        source: ./deploy/volta-proxy-headers.conf
+        target: /etc/nginx/srez-proxy-headers/volta.conf
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      edge:
+        ipv4_address: ${SREZ_FRONTEND_PROXY_IP:?set the frontend address in the dedicated edge subnet}
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    <<: *runtime
+    build: .
+    cpus: ${SREZ_APP_CPUS:?set API CPU budget}
+    mem_limit: ${SREZ_APP_MEMORY:?set API memory budget}
+    environment:
+      DATABASE_URL: postgres://srez@db:5432/srez?sslmode=disable
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set the existing database role password}
+      SREZ_PUBLIC_ORIGIN: https://srez.remz.biz
+      SREZ_FRONTEND_BASE_URL: https://srez.remz.biz
+      SREZ_AUTH_LOCAL_HTTP: 'false'
+      SREZ_TRUSTED_PROXIES: ${SREZ_FRONTEND_PROXY_IP:?set the frontend proxy address}
+      SREZ_JWT_KEY: ${SREZ_JWT_KEY:?set stable JWT key}
+      SREZ_CSRF_KEY: ${SREZ_CSRF_KEY:?set stable CSRF key}
+      SREZ_WISHLIST_KEY: ${SREZ_WISHLIST_KEY:?set stable wishlist key}
+      SREZ_JWT_ISSUER: ${SREZ_JWT_ISSUER:-srez}
+      SREZ_JWT_AUDIENCE: ${SREZ_JWT_AUDIENCE:-srez-api}
+      SREZ_S3_ENDPOINT: http://seaweedfs:8333
+      SREZ_S3_PUBLIC_ENDPOINT: http://seaweedfs:8333
+      SREZ_S3_REGION: ${SREZ_S3_REGION:-us-east-1}
+      SREZ_S3_BUCKET: ${SREZ_S3_BUCKET:-srez-media}
+      SREZ_S3_ACCESS_KEY: ${SREZ_S3_ACCESS_KEY:?set stable S3 access key}
+      SREZ_S3_SECRET_KEY: ${SREZ_S3_SECRET_KEY:?set stable S3 secret key}
+      SREZ_ELASTICSEARCH_URL: http://elasticsearch:9200
+      SREZ_ELASTICSEARCH_USERNAME: ${SREZ_ELASTICSEARCH_USERNAME:?set the Elasticsearch catalog user}
+      SREZ_ELASTICSEARCH_PASSWORD: ${SREZ_ELASTICSEARCH_PASSWORD:?set the Elasticsearch catalog password}
+      SREZ_SMTP_HOST: ${SREZ_SMTP_HOST:?set the SMTP provider hostname}
+      SREZ_SMTP_PORT: ${SREZ_SMTP_PORT:?set the SMTP provider port}
+      SREZ_SMTP_TLS: ${SREZ_SMTP_TLS:?set starttls or tls}
+      SREZ_SMTP_USERNAME: ${SREZ_SMTP_USERNAME:-}
+      SREZ_SMTP_PASSWORD: ${SREZ_SMTP_PASSWORD:-}
+      SREZ_MAIL_FROM: ${SREZ_MAIL_FROM:?set the verified sender}
+    networks: [edge, data]
+    depends_on:
+      db:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 70s
+
+  db:
+    <<: *runtime
+    image: postgres:16-alpine
+    cpus: ${SREZ_POSTGRES_CPUS:?set PostgreSQL CPU budget}
+    mem_limit: ${SREZ_POSTGRES_MEMORY:?set PostgreSQL memory budget}
+    environment:
+      POSTGRES_USER: srez
+      POSTGRES_DB: srez
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set the existing database role password}
+    volumes:
+      - type: bind
+        source: ${SREZ_POSTGRES_DATA_DIR:?set the existing PostgreSQL 16 data directory}
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U srez -d srez"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  seaweedfs:
+    <<: *runtime
+    image: chrislusf/seaweedfs:4.54@sha256:4b42c212543a0acd4c0e675215ecdcaf62a186ef98def76c7e12701871222d15
+    cpus: ${SREZ_SEAWEEDFS_CPUS:?set SeaweedFS CPU budget}
+    mem_limit: ${SREZ_SEAWEEDFS_MEMORY:?set SeaweedFS memory budget}
+    entrypoint: ["/bin/sh", "/etc/srez/seaweedfs-entrypoint.sh"]
+    command: ["mini", "-dir=/data", "-ip=seaweedfs", "-ip.bind=0.0.0.0", "-s3.port=8333", "-bucket=${SREZ_S3_BUCKET:-srez-media}"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${SREZ_S3_ACCESS_KEY:?set stable S3 access key}
+      AWS_SECRET_ACCESS_KEY: ${SREZ_S3_SECRET_KEY:?set stable S3 secret key}
+    volumes:
+      - type: bind
+        source: ${SREZ_SEAWEEDFS_DATA_DIR:?set the existing SeaweedFS data directory}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./deploy/seaweedfs-entrypoint.sh
+        target: /etc/srez/seaweedfs-entrypoint.sh
+        read_only: true
+        bind:
+          create_host_path: false
+    networks: [data]
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8888/ && wget -S -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -q '403'"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+  elasticsearch:
+    <<: *runtime
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.26@sha256:d71769f4e1145dca3794a04ddcd67e12f1299048b3232025e55feda799904a5d
+    cpus: ${SREZ_ES_CPUS:?set Elasticsearch CPU budget}
+    mem_limit: ${SREZ_ES_MEMORY:?set Elasticsearch memory budget}
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'true'
+      xpack.security.autoconfiguration.enabled: 'false'
+      xpack.security.http.ssl.enabled: 'false'
+      xpack.ml.enabled: 'false'
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set the existing Elasticsearch elastic user password}
+      ES_JAVA_OPTS: "-Xms${SREZ_ES_HEAP:-384m} -Xmx${SREZ_ES_HEAP:-384m}"
+    volumes:
+      - type: bind
+        source: ${SREZ_ELASTICSEARCH_DATA_DIR:?set the existing Elasticsearch data directory}
+        target: /usr/share/elasticsearch/data
+        bind:
+          create_host_path: false
+    networks: [data]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS -u "elastic:$$ELASTIC_PASSWORD"
+          'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=3s'
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+networks:
+  data:
+    internal: true
+  edge:
+    ipam:
+      config:
+        - subnet: ${SREZ_EDGE_SUBNET:?set an unused private CIDR for SREZ}

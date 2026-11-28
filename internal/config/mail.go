@@ -49,9 +49,12 @@ func LoadMail(defaultOrigin string, localHTTP bool) (Mail, error) {
 	if u.Scheme != "https" && !(localHTTP && u.Scheme == "http" && loopback(u.Hostname())) {
 		return c, invalid
 	}
+	if !localHTTP && c.FrontendBaseURL != defaultOrigin {
+		return c, invalid
+	}
 	switch c.TLSMode {
 	case "none":
-		if (c.Host != "mailpit" && !loopback(c.Host)) || c.Username != "" || c.Password != "" {
+		if !localHTTP || (c.Host != "mailpit" && !loopback(c.Host)) || c.Username != "" || c.Password != "" {
 			return c, invalid
 		}
 	case "starttls", "tls":
