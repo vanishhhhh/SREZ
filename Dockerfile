@@ -10,6 +10,7 @@ COPY internal ./internal
 COPY migrations ./migrations
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/server ./cmd/app
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/seed ./cmd/seed
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/healthcheck ./cmd/healthcheck
 
 FROM scratch
 
@@ -18,6 +19,7 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifica
 
 COPY --from=build /out/server /server
 COPY --from=build /out/seed /seed
+COPY --from=build /out/healthcheck /healthcheck
 
 ENV HTTP_ADDR=:8080
 ENV GIN_MODE=release

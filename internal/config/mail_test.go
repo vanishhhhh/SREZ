@@ -24,4 +24,12 @@ func TestMailConfigurationFailsClosed(t *testing.T) {
 	if _, e := LoadMail("https://srez.example", false); e != nil {
 		t.Fatal(e)
 	}
+	if _, e := LoadMail("https://other.example", false); e == nil {
+		t.Fatal("accepted a mail link origin different from the production origin")
+	}
+	t.Setenv("SREZ_SMTP_HOST", "mailpit")
+	t.Setenv("SREZ_SMTP_TLS", "none")
+	if _, e := LoadMail("https://srez.example", false); e == nil {
+		t.Fatal("accepted cleartext SMTP in production mode")
+	}
 }
