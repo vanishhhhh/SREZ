@@ -1,1 +1,9 @@
-* @vanishhhhh @remz40k
+/internal/mailer/ @remz40k
+/internal/config/mail.go @remz40k
+/internal/usecase/email_verification.go @remz40k
+/internal/usecase/password_recovery.go @remz40k
+/internal/storage/email_verification.go @remz40k
+/internal/storage/password_recovery.go @remz40k
+/compose.prod.yaml @remz40k
+/frontend/nginx.conf @remz40k
+/deploy/ @remz40k
